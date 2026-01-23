@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "billing.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "auth.md",
+      "summary": "This is a mock summary of the architectural component."
+    }
+  ]
+}

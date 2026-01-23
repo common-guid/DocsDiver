@@ -1,0 +1,29 @@
+system:
+  toc_filename: "ToC.json"
+  docs_root: "./docs-for-testing"
+
+# Model Provider Configurations
+providers:
+  gemini:
+    model_name: "gemini-2.5-pro"
+  openrouter:
+    base_url: "https://openrouter.ai/api/v1"
+    model_name: "anthropic/claude-3-opus"
+
+# Agent-Specific Model Selection
+agents:
+  map_maker:
+    provider: "gemini"
+    model: "gemini-2-flash"
+  coordinator:
+    provider: "gemini"
+    model: "gemini-2.5-pro"
+  permissions_agent:
+    provider: "gemini"
+    model: "gemini-2.5-pro"
+  constraints_agent:
+    provider: "gemini"
+    model: "gemini-2.5-pro"
+  boundaries_agent:
+    provider: "gemini"
+    model: "gemini-2.5-pro"

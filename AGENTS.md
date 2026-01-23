@@ -28,3 +28,4 @@
 ```
 6. whenever possible Dockerize the application and use docker compose. 
 7. IF using python: ALWAYS use a python virtual env for python if not in a container.
+8. See the llms.txt file for links to the ADK python SDK documentation

@@ -6,3 +6,5 @@ Integrated Langfuse observability using OpenTelemetry and `openinference-instrum
 integrated the langsmith tracing along side the langfuse
 ## Gemini API | 2026-01-24
 added gemini api support to complimient openrouter
+## Configuration & env docs | 2026-01-24
+Documented configuration options and environment variables in README, including which are required versus optional for core runtime and observability.

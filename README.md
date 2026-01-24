@@ -116,6 +116,33 @@ providers:
     model_name: "gemini-2.5-pro"  # Default model for complex reasoning
 ```
 
+#### Config options
+
+- `system.docs_root` (**required for meaningful runs, default: `"./docs-for-testing"`**): Directory that will be scanned for markdown docs. You can change this to point at your own docs tree.
+- `system.toc_filename` (**optional, default: `"ToC.json"`**): Name of the file where the generated table of contents is written.
+- `providers.gemini.model_name` (**optional, default: `"gemini-1.5-pro"` in `config.yaml`**): Model used when you run with `--model gemini`.
+- `providers.openrouter.base_url` (**optional, default: `"https://openrouter.ai/api/v1"`**): OpenRouter-compatible API endpoint.
+- `providers.openrouter.model_name` (**optional, default: `"anthropic/claude-3-opus"`**): Model used when you run with `--model openrouter` (the default).
+- `agents.*.provider` / `agents.*.model` (**optional, advanced**): Per-agent overrides that let you mix providers/models for `map_maker`, `coordinator`, and each worker.
+
+#### Environment variables
+
+You can copy `.env.example` to `.env` and fill in the values:
+
+- **Core model providers**
+  - `OPENROUTER_API_KEY` (**required if using the default `--model openrouter`**): API key for OpenRouter. The app will fail to call OpenRouter without this.
+  - `GEMINI_API_KEY` (**required if you run with `--model gemini`**): API key for Google Gemini via the ADK.
+- **Observability: LangSmith (all optional for core runtime)**
+  - `LANGSMITH_API_KEY` (**required to enable LangSmith tracing**): If set, traces are exported to LangSmith.
+  - `LANGSMITH_ENDPOINT` (optional, default: `"https://api.smith.langchain.com"`): Custom LangSmith OTLP endpoint.
+  - `LANGSMITH_PROJECT` (optional): Project name tag for traces.
+  - `LANGSMITH_TRACING` (optional): Convenience flag included in `.env.example`; current instrumentation only requires `LANGSMITH_API_KEY` but this flag is useful for tooling or future toggles.
+- **Observability: Langfuse (all optional for core runtime)**
+  - `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` (**both required to enable Langfuse**): If both are present, spans are exported to Langfuse.
+  - `LANGFUSE_HOST` (optional, default: `"http://localhost:3000"`): Langfuse host URL used to build the OTLP endpoint.
+- **Misc**
+  - `LOG_LEVEL` (optional): Reserved for controlling log verbosity; currently not required for normal operation.
+
 ---
 
 ## 🔌 Extending Functionality and Capabilities

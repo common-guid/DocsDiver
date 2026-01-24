@@ -1,5 +1,6 @@
 import sys
 import asyncio
+from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
 from sdaa.src.agents.coordinator import create_coordinator_agent
@@ -9,6 +10,7 @@ from google.genai import types
 from google.adk.sessions import Session
 
 async def main():
+    setup_instrumentation()
     print("SDAA: Security Documentation Analysis Agent")
     print("===========================================")
 

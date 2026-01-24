@@ -3,3 +3,7 @@ pydantic
 pyyaml
 python-dotenv
 pytest
+langfuse
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
+openinference-instrumentation-google-adk

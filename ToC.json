@@ -1,6 +1,10 @@
 {
   "files": [
     {
+      "path": "roles.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
       "path": "billing.md",
       "summary": "This is a mock summary of the architectural component."
     },
@@ -10,6 +14,54 @@
     },
     {
       "path": "auth.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-overview.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-overview#token-expiration.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-overview#workspace-tokens.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/RunProject.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/GetProjectRuns.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/EditCollection.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/EditDataConnection.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/CancelRun.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/ListProjects.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/GetQueriedTables.md",
+      "summary": "This is a mock summary of the architectural component."
+    },
+    {
+      "path": "api/api-reference#operation/CreateCollection.md",
       "summary": "This is a mock summary of the architectural component."
     }
   ]

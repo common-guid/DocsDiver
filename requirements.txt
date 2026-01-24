@@ -3,3 +3,6 @@ pydantic
 pyyaml
 python-dotenv
 pytest
+openai
+google-genai
+pytest-asyncio

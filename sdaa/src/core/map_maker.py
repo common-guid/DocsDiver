@@ -16,8 +16,9 @@ async def _summarize_file(filepath: str, model) -> str:
     prompt = f"Read the following content and provide a one-sentence architectural summary.\n\n{content}"
 
     # Create request
+    model_name = getattr(model, "model_name", "model")
     request = LlmRequest(
-        model="mock-model",
+        model=model_name,
         contents=[types.Content(parts=[types.Part.from_text(text=prompt)])]
     )
 
@@ -29,13 +30,16 @@ async def _summarize_file(filepath: str, model) -> str:
                     response_text += part.text
 
     # The mock model returns JSON-like string for 'architectural summary'
+    # Real models might just return text.
     try:
         data = json.loads(response_text)
-        return data.get("summary", response_text)
+        if isinstance(data, dict):
+            return data.get("summary", response_text)
+        return response_text.strip()
     except json.JSONDecodeError:
         return response_text.strip()
 
-async def generate_toc():
+async def generate_toc(model=None):
     toc_filename = config_loader.get("system.toc_filename", "ToC.json")
     print(f"Generating {toc_filename}...")
 
@@ -53,9 +57,9 @@ async def generate_toc():
 
     toc_entries = []
 
-    # Initialize model
-    # Using MockModel as per plan
-    model = MockModel(model="mock-model")
+    # Initialize model if not provided
+    if model is None:
+        model = MockModel(model="mock-model")
 
     for file in file_list:
         summary = await _summarize_file(file, model)

@@ -1,18 +1,17 @@
-# API Reference
+# API Reference & Boundaries
 
-The API allows you to fetch user data.
+## General
+Base URL: `https://api.example.com/v1`
 
 ## Endpoints
 
-### GET /users
-Returns a list of all users.
+### User Profile
+*   `GET /users/me`: Get own profile.
+*   `PUT /users/me`: Update profile.
 
-**Parameters**:
-- `limit`: Number of users to return.
+### File Uploads
+*   `POST /upload`: Uploads file to S3 bucket `user-uploads`.
+*   **Boundary:** Data moves from Client (Public) to AWS S3 (Internal/Third-party).
 
-**Example**:
-```bash
-curl https://api.example.com/users
-```
-
-(Note: No mention of authentication or rate limits here - intentional flaw)
+### Admin Exports
+*   `GET /admin/export`: Exports all user data to CSV.

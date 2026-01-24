@@ -26,6 +26,8 @@ class TaggingSpanProcessor(SpanProcessor):
             # Add the tag using the Langfuse attribute key
             # Langfuse expects a list of strings
             span.set_attribute(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"])
+            # LangSmith tags (list of strings)
+            span.set_attribute("langsmith.span.tags", ["ADK-DocsDiver"])
 
     def on_end(self, span):
         pass
@@ -37,36 +39,70 @@ class TaggingSpanProcessor(SpanProcessor):
         pass
 
 def setup_instrumentation():
-    host = os.getenv("LANGFUSE_HOST", "http://localhost:3000")
-    public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.getenv("LANGFUSE_SECRET_KEY")
-
-    if not public_key or not secret_key:
-        print("Warning: LANGFUSE_PUBLIC_KEY or LANGFUSE_SECRET_KEY not set. Observability disabled.")
-        return
-
-    # Ensure host doesn't have trailing slash
-    if host.endswith("/"):
-        host = host[:-1]
-
-    endpoint = f"{host}/api/public/otlp/v1/traces"
-
-    # Basic Auth Header
-    credentials = f"{public_key}:{secret_key}"
-    auth_header = f"Basic {base64.b64encode(credentials.encode()).decode()}"
-
-    exporter = OTLPSpanExporter(
-        endpoint=endpoint,
-        headers={"Authorization": auth_header}
-    )
-
     provider = TracerProvider()
-    provider.add_span_processor(BatchSpanProcessor(exporter))
-    provider.add_span_processor(TaggingSpanProcessor())
+    has_exporter = False
 
-    trace.set_tracer_provider(provider)
+    # --- Langfuse Setup ---
+    lf_host = os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+    lf_public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
+    lf_secret_key = os.getenv("LANGFUSE_SECRET_KEY")
 
-    # Initialize Google ADK Instrumentation
-    # This will auto-instrument the Google ADK classes to emit traces
-    GoogleADKInstrumentor().instrument()
-    print(f"Langfuse observability initialized at {host}")
+    if lf_public_key and lf_secret_key:
+        # Ensure host doesn't have trailing slash
+        if lf_host.endswith("/"):
+            lf_host = lf_host[:-1]
+
+        lf_endpoint = f"{lf_host}/api/public/otlp/v1/traces"
+
+        # Basic Auth Header
+        credentials = f"{lf_public_key}:{lf_secret_key}"
+        auth_header = f"Basic {base64.b64encode(credentials.encode()).decode()}"
+
+        lf_exporter = OTLPSpanExporter(
+            endpoint=lf_endpoint,
+            headers={"Authorization": auth_header}
+        )
+        provider.add_span_processor(BatchSpanProcessor(lf_exporter))
+        has_exporter = True
+        print(f"Langfuse observability initialized at {lf_host}")
+    else:
+        print("Langfuse credentials not found.")
+
+    # --- LangSmith Setup ---
+    ls_api_key = os.getenv("LANGSMITH_API_KEY")
+    # Optional: check LANGSMITH_TRACING=true, but key presence is usually the trigger.
+
+    if ls_api_key:
+        ls_host = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+        if ls_host.endswith("/"):
+            ls_host = ls_host[:-1]
+
+        # Standard OTLP endpoint for LangSmith
+        ls_endpoint = f"{ls_host}/otel/v1/traces"
+
+        ls_project = os.getenv("LANGSMITH_PROJECT")
+
+        headers = {"x-api-key": ls_api_key}
+        if ls_project:
+            headers["x-langsmith-project"] = ls_project
+
+        ls_exporter = OTLPSpanExporter(
+            endpoint=ls_endpoint,
+            headers=headers
+        )
+        provider.add_span_processor(BatchSpanProcessor(ls_exporter))
+        has_exporter = True
+        print(f"LangSmith observability initialized at {ls_host}")
+    else:
+        print("LangSmith credentials not found.")
+
+    if has_exporter:
+        provider.add_span_processor(TaggingSpanProcessor())
+        trace.set_tracer_provider(provider)
+
+        # Initialize Google ADK Instrumentation
+        # This will auto-instrument the Google ADK classes to emit traces
+        GoogleADKInstrumentor().instrument()
+        print("Observability instrumentation complete.")
+    else:
+        print("Warning: No observability credentials found. Observability disabled.")

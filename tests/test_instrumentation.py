@@ -19,8 +19,9 @@ class TestInstrumentation(unittest.TestCase):
 
         setup_instrumentation()
 
-        # Check Exporter initialization
-        MockExporter.assert_called_once()
+        # Check Exporter initialization for Langfuse (should be called once given env vars)
+        # Note: Depending on logic, if only Langfuse vars are set, it's called once.
+        self.assertEqual(MockExporter.call_count, 1)
         call_args = MockExporter.call_args
         self.assertEqual(call_args.kwargs['endpoint'], "http://localhost:3000/api/public/otlp/v1/traces")
         self.assertIn("Authorization", call_args.kwargs['headers'])
@@ -29,13 +30,42 @@ class TestInstrumentation(unittest.TestCase):
         # Check GoogleADK instrumentation
         MockGoogleADK.return_value.instrument.assert_called_once()
 
+    @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
+    @patch('sdaa.src.core.instrumentation.GoogleADKInstrumentor')
+    @patch.dict(os.environ, {
+        "LANGSMITH_API_KEY": "ls_test_key",
+        "LANGSMITH_PROJECT": "ls_test_project",
+        "LANGSMITH_ENDPOINT": "https://api.test.com"
+    })
+    def test_setup_instrumentation_langsmith(self, MockGoogleADK, MockExporter):
+        # Clear Langfuse vars for this test to isolate LangSmith
+        with patch.dict(os.environ, {}, clear=True):
+             os.environ["LANGSMITH_API_KEY"] = "ls_test_key"
+             os.environ["LANGSMITH_PROJECT"] = "ls_test_project"
+             os.environ["LANGSMITH_ENDPOINT"] = "https://api.test.com"
+
+             trace.set_tracer_provider(None)
+             setup_instrumentation()
+
+             self.assertEqual(MockExporter.call_count, 1)
+             call_args = MockExporter.call_args
+             self.assertEqual(call_args.kwargs['endpoint'], "https://api.test.com/otel/v1/traces")
+             self.assertEqual(call_args.kwargs['headers']['x-api-key'], "ls_test_key")
+             self.assertEqual(call_args.kwargs['headers']['x-langsmith-project'], "ls_test_project")
+
     def test_tagging_span_processor(self):
         processor = TaggingSpanProcessor()
         mock_span = MagicMock()
 
         # Test root span (parent_context is None)
         processor.on_start(mock_span, None)
-        mock_span.set_attribute.assert_called_with(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"])
+
+        # Check both calls were made
+        expected_calls = [
+            unittest.mock.call(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"]),
+            unittest.mock.call("langsmith.span.tags", ["ADK-DocsDiver"])
+        ]
+        mock_span.set_attribute.assert_has_calls(expected_calls, any_order=True)
 
         mock_span.reset_mock()
 
@@ -45,7 +75,7 @@ class TestInstrumentation(unittest.TestCase):
             mock_get_span.return_value = trace.INVALID_SPAN
             # Context can be anything since we mock get_current_span
             processor.on_start(mock_span, "some_context")
-            mock_span.set_attribute.assert_called_with(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"])
+            mock_span.set_attribute.assert_has_calls(expected_calls, any_order=True)
 
             mock_span.reset_mock()
 

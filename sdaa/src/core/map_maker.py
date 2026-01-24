@@ -35,7 +35,7 @@ async def _summarize_file(filepath: str, model) -> str:
     except json.JSONDecodeError:
         return response_text.strip()
 
-async def generate_toc():
+async def generate_toc(model=None):
     toc_filename = config_loader.get("system.toc_filename", "ToC.json")
     print(f"Generating {toc_filename}...")
 
@@ -54,8 +54,9 @@ async def generate_toc():
     toc_entries = []
 
     # Initialize model
-    # Using MockModel as per plan
-    model = MockModel(model="mock-model")
+    if model is None:
+        # Using MockModel as fallback
+        model = MockModel(model="mock-model")
 
     for file in file_list:
         summary = await _summarize_file(file, model)

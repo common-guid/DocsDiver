@@ -19,6 +19,49 @@ Built with the **Google Agent Development Kit (ADK)**, it orchestrates a team of
 
 ---
 
+## 🏗 Architecture
+
+### Repository Structure
+
+*   `main.py`: The entry point for the CLI application. Initializes the MapMaker and the Agent Coordinator.
+*   `sdaa/src/agents/`: Contains the logic for the AI agents.
+    *   `coordinator.py`: Defines the Principal Security Architect (PSA) agent.
+    *   `workers.py`: Defines the specialized sub-agents (Permissions, Constraints, Boundaries).
+*   `sdaa/src/core/`: Core system logic.
+    *   `map_maker.py`: Scans documentation to generate the semantic Table of Contents (`ToC.json`).
+*   `sdaa/src/tools/`: Tool definitions used by the agents.
+    *   `file_ops.py`: File system operations (`read_file`, `list_files`) for accessing documentation.
+    *   `reporting.py`: Functions to log findings and generate the final report (`generate_final_report`).
+*   `docs-for-testing/`: Default directory containing the markdown documentation to be analyzed.
+
+### Agent System & Tools
+
+The system operates on a **Coordinator-Worker** model:
+
+1.  **Coordinator (PSA):**
+    *   **Role:** Orchestrates the audit, delegates tasks, and synthesizes the final report.
+    *   **Tools:** `read_file`, `generate_final_report`.
+    *   **Function:** Decides whether to perform a full audit or answer specific user queries.
+
+2.  **Worker Agents:**
+    *   **Permissions Agent:** Analyzes RBAC and ACLs.
+        *   *Tools:* `read_file`, `list_files`, `report_permissions_matrix`.
+    *   **Constraints Agent:** Identifies business logic and negative constraints.
+        *   *Tools:* `read_file`, `list_files`, `report_invariance_findings`.
+    *   **Boundaries Agent:** Maps data flow and trust boundaries.
+        *   *Tools:* `read_file`, `list_files`, `report_boundary_analysis`.
+
+### Data Flow
+
+1.  **Ingestion:** On startup, `MapMaker` scans `system.docs_root` and generates `ToC.json`, creating a "mental map" of the available documentation.
+2.  **Interaction:** The user provides a command via the CLI (e.g., "Audit the application").
+3.  **Delegation:** The Coordinator consults the `ToC.json` and instructs the relevant Worker Agents to analyze specific files using `read_file`.
+4.  **Analysis:** Workers parse the content, extract security insights, and report back to the Coordinator.
+5.  **Synthesis:** The Coordinator aggregates these findings, cross-references them for contradictions, and generates the **Master Audit Report**.
+6.  **Output:** The final report is saved to `Security_Threat_Model.md` via `generate_final_report`.
+
+---
+
 ## 📦 Installation
 
 1.  **Clone the repository:**

@@ -1,9 +1,12 @@
 import sys
 import asyncio
+import argparse
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
 from sdaa.src.agents.coordinator import create_coordinator_agent
 from sdaa.src.utils.mock_model import MockModel
+from sdaa.src.models.gemini_model import GeminiModel
+from sdaa.src.models.openrouter_model import OpenRouterModel
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 from google.adk.sessions import Session
@@ -12,18 +15,35 @@ async def main():
     print("SDAA: Security Documentation Analysis Agent")
     print("===========================================")
 
+    # Parse Arguments
+    parser = argparse.ArgumentParser(description="SDAA Security Documentation Analysis Agent")
+    parser.add_argument("-m", "--model", choices=["gemini", "openrouter", "mock"], default="openrouter", help="Model provider to use")
+    args = parser.parse_args()
+
+    # Initialize Model
+    model = None
+    if args.model == "gemini":
+        model_name = config_loader.get("providers.gemini.model_name", "gemini-2.5-pro")
+        print(f"Using Gemini Model: {model_name}")
+        model = GeminiModel(model=model_name)
+    elif args.model == "openrouter":
+        model_name = config_loader.get("providers.openrouter.model_name", "anthropic/claude-3-opus")
+        print(f"Using OpenRouter Model: {model_name}")
+        model = OpenRouterModel(model=model_name)
+    else:
+        print("Using Mock Model")
+        model = MockModel(model="mock-model")
+
     # 1. Map Maker
     print("\n[Phase 1] Initializing Map Maker...")
     try:
-        await generate_toc()
+        await generate_toc(model=model)
         print("ToC generation complete.")
     except Exception as e:
         print(f"Error generating ToC: {e}")
 
     # 2. Initialize Agent
     print("\n[Phase 2] Initializing Coordinator...")
-    # Using MockModel for all agents as per plan
-    model = MockModel(model="mock-model")
     coordinator = create_coordinator_agent(model=model)
 
     # Initialize Runner

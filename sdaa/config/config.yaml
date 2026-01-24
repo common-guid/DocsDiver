@@ -5,25 +5,25 @@ system:
 # Model Provider Configurations
 providers:
   gemini:
-    model_name: "gemini-2.5-pro"
+    model_name: "gemini-1.5-pro" # Requires GEMINI_API_KEY
   openrouter:
     base_url: "https://openrouter.ai/api/v1"
-    model_name: "anthropic/claude-3-opus"
+    model_name: "anthropic/claude-3-opus" # Requires OPENROUTER_API_KEY
 
-# Agent-Specific Model Selection
+# Agent-Specific Model Selection (Overridden by CLI flag -m)
 agents:
   map_maker:
     provider: "gemini"
-    model: "gemini-2-flash"
+    model: "gemini-2.0-flash"
   coordinator:
     provider: "gemini"
-    model: "gemini-2.5-pro"
+    model: "gemini-1.5-pro"
   permissions_agent:
     provider: "gemini"
-    model: "gemini-2.5-pro"
+    model: "gemini-1.5-pro"
   constraints_agent:
     provider: "gemini"
-    model: "gemini-2.5-pro"
+    model: "gemini-1.5-pro"
   boundaries_agent:
     provider: "gemini"
-    model: "gemini-2.5-pro"
+    model: "gemini-1.5-pro"

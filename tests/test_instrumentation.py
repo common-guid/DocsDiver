@@ -5,6 +5,7 @@ from opentelemetry import trace
 from sdaa.src.core.instrumentation import setup_instrumentation, TaggingSpanProcessor, LangfuseOtelSpanAttributes, LANGFUSE_AVAILABLE
 
 class TestInstrumentation(unittest.TestCase):
+    @patch('sdaa.src.core.instrumentation.requests.get')
     @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
     @patch('sdaa.src.core.instrumentation.GoogleADKInstrumentor')
     @patch.dict(os.environ, {
@@ -12,9 +13,12 @@ class TestInstrumentation(unittest.TestCase):
         "LANGFUSE_SECRET_KEY": "sk-lf-test",
         "LANGFUSE_HOST": "http://localhost:3000"
     }, clear=True)
-    def test_setup_instrumentation(self, MockGoogleADK, MockExporter):
+    def test_setup_instrumentation(self, MockGoogleADK, MockExporter, MockRequestsGet):
         # Reset trace provider to avoid conflict with other tests if run in suite
         trace.set_tracer_provider(None)
+
+        # Simulate reachable Langfuse host so exporter is configured
+        MockRequestsGet.return_value.status_code = 200
 
         setup_instrumentation()
 

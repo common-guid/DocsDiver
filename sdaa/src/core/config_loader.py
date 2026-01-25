@@ -42,5 +42,23 @@ class ConfigLoader:
         except (KeyError, TypeError):
             return default
 
+    def get_output_dir(self) -> str:
+        """Resolve the configured output directory and ensure it exists.
+
+        Returns the absolute path to the directory where SDAA should write
+        generated artifacts such as ToC.json and Security_Threat_Model.md.
+        """
+        raw_path = self.get("system.output_dir", ".")
+        if not raw_path:
+            raw_path = "."
+
+        # Expand user (~) and make absolute if needed
+        path = os.path.expanduser(raw_path)
+        if not os.path.isabs(path):
+            path = os.path.abspath(path)
+
+        os.makedirs(path, exist_ok=True)
+        return path
+
 # Singleton access
 config_loader = ConfigLoader()

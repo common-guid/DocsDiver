@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import argparse
+import os
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
@@ -15,6 +16,8 @@ from google.adk.sessions import Session
 async def main():
     parser = argparse.ArgumentParser(description="SDAA: Security Documentation Analysis Agent")
     parser.add_argument("-m", "--model", choices=["gemini", "openrouter"], default="openrouter", help="Model provider to use")
+    parser.add_argument("--skip-map-maker", action="store_true", help="Skip Map Maker and use an existing ToC.json if present")
+    parser.add_argument("--toc-only", action="store_true", help="Run Map Maker only and exit before starting the coordinator")
     args = parser.parse_args()
 
     setup_instrumentation()
@@ -37,12 +40,25 @@ async def main():
         model = MockModel(model="mock-model")
 
     # 1. Map Maker
-    print("\n[Phase 1] Initializing Map Maker...")
-    try:
-        await generate_toc(model=model)
-        print("ToC generation complete.")
-    except Exception as e:
-        print(f"Error generating ToC: {e}")
+    toc_filename = config_loader.get("system.toc_filename", "ToC.json")
+    output_dir = config_loader.get_output_dir()
+    toc_path = os.path.join(output_dir, toc_filename)
+
+    if args.skip_map_maker:
+        print(f"\n[Phase 1] Skipping Map Maker due to --skip-map-maker flag. Expecting existing ToC at {toc_path}.")
+    elif os.path.exists(toc_path):
+        print(f"\n[Phase 1] Skipping Map Maker because existing ToC was found at {toc_path}.")
+    else:
+        print("\n[Phase 1] Initializing Map Maker...")
+        try:
+            await generate_toc(model=model)
+            print(f"ToC generation complete. Wrote ToC to {toc_path}.")
+        except Exception as e:
+            print(f"Error generating ToC: {e}")
+
+    if args.toc_only:
+        print("[Phase 1] --toc-only specified; exiting after Map Maker.")
+        return
 
     # 2. Initialize Agent
     print("\n[Phase 2] Initializing Coordinator...")

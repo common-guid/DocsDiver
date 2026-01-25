@@ -10,7 +10,33 @@ Resolved compatibility issues with Python 3.14 and validated the application flo
 - [x] Updated `sdaa/config/config.yaml` to use `gemini-2.5-pro` as the default model, matching available models in the environment.
 - [x] Validated application startup and API connectivity by running `main.py -m gemini`.
 - [x] Created `scripts/validate_connections.py` to allow users to verify API connectivity (Gemini/OpenRouter).
+- [x] Extended `sdaa/src/core/map_maker.py` and `ToC.json` generation to include three keyword tags per file, and updated `tests/test_map_maker.py` to cover the new format.
+- [x] Updated worker agent prompts in `sdaa/src/agents/workers.py` so agents explicitly use ToC `tags` when selecting relevant documentation files.
 
 ### Next Steps & Continuity
 - Verify successful generation of `ToC.json` and full audit workflow.
 - Address rate limiting issues if they persist during full audit.
+
+## Phase: Map Maker Output Directory & Skip Controls | 2026-01-25
+Implemented configurable output routing for Map Maker and reporting, plus new CLI flags for controlling ToC generation.
+
+### Tasks Completed
+- [x] Added `system.output_dir` to `sdaa/config/config.yaml` and implemented `ConfigLoader.get_output_dir` to resolve and create the output directory.
+- [x] Updated `generate_toc` in `sdaa/src/core/map_maker.py` to write `ToC.json` to `system.output_dir` with a skip guard when the file already exists.
+- [x] Updated `generate_final_report` in `sdaa/src/tools/reporting.py` so the final `Security_Threat_Model.md` report is saved under `system.output_dir`.
+- [x] Extended `main.py` CLI with `--skip-map-maker` and `--toc-only` flags and wired Phase 1 to respect existing ToC files and the new skip behavior.
+- [x] Updated `tests/test_map_maker.py` so it uses the resolved output directory and cleans up any pre-existing `ToC.json` before running, keeping coverage for summary and tag structure.
+- [x] Updated `README.md` configuration and data-flow documentation to describe `system.output_dir` and where outputs are written.
+-### Next Steps & Continuity
+- Exercise the CLI end-to-end with a non-default `system.output_dir` (for example, `./artifacts`) to confirm all outputs route correctly.
+
+## Phase: Documentation Update (Output Dir & Skip ToC) | 2026-01-25
+Updated README usage and configuration notes to document the output directory and the CLI flag for skipping Map Maker.
+
+### Tasks Completed
+- [x] Documented `--skip-map-maker` usage for reusing an existing `ToC.json` in `system.output_dir`.
+- [x] Clarified README configuration guidance to include `system.output_dir`.
+- [x] Added README usage notes for `--toc-only` to generate ToC and exit.
+
+### Next Steps & Continuity
+- Review README for any additional CLI flags that should be documented.

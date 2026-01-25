@@ -17,3 +17,17 @@ Validated the fix by running the application with `python main.py -m gemini`. Re
 Validated that the application starts and attempts API calls (confirmed by Quota Exceeded response).
 ## Connection Validation Scripts | 2026-01-24
 Created `scripts/validate_connections.py` to verify connectivity to Gemini and OpenRouter APIs. Updated `tests/test_instrumentation.py` to ensure regression testing for the Langfuse import failure scenario.
+## ToC Tag Generation | 2026-01-25
+Updated the Map Maker (`sdaa/src/core/map_maker.py`) so each ToC entry includes a summary and three keyword tags, and adjusted `tests/test_map_maker.py` to validate the new `tags` field.
+## ToC Tag-Aware Agents | 2026-01-25
+Refined worker agent prompts in `sdaa/src/agents/workers.py` so the permissions, constraints, and boundaries agents treat ToC `tags` as primary metadata when deciding which documentation files to read.
+## Langfuse Offline Handling | 2026-01-25
+Improved `setup_instrumentation` so that Langfuse OTLP export is disabled gracefully when the configured `LANGFUSE_HOST` is unreachable, preventing noisy connection-refused stack traces during normal chat usage.
+## Map Maker Output Directory & Skip Controls | 2026-01-25
+Added a configurable `system.output_dir` for routing `ToC.json`, `Security_Threat_Model.md`, and future artifacts, introduced `--skip-map-maker` and `--toc-only` CLI flags, and updated Map Maker, reporting, tests, and docs to respect the new output path.
+## Skip ToC Generation Tests | 2026-01-25
+Added `tests/test_main_skip_map_maker.py` to verify Map Maker is called when ToC is missing, skipped when a ToC already exists or `--skip-map-maker` is set, and that the coordinator and agents still initialize correctly when reusing a precomputed ToC.
+## README output_dir & skip-map-maker docs | 2026-01-25
+Updated README configuration guidance to include `system.output_dir` and added usage notes for `--skip-map-maker` to reuse an existing ToC.
+## README toc-only docs | 2026-01-25
+Added README usage notes for `--toc-only` to generate `ToC.json` and exit without starting the interactive session.

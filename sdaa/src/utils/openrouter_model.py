@@ -9,11 +9,11 @@ class OpenRouterModel(BaseLlm):
     client: AsyncOpenAI
 
     def __init__(self, model_name: str, base_url: str = "https://openrouter.ai/api/v1", api_key: Optional[str] = None):
-        self.model = model_name
-        self.client = AsyncOpenAI(
+        client = AsyncOpenAI(
             base_url=base_url,
             api_key=api_key or os.getenv("OPENROUTER_API_KEY"),
         )
+        super().__init__(model=model_name, client=client)
 
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False

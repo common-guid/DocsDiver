@@ -1,7 +1,9 @@
 system:
   toc_filename: "ToC.json"
   docs_root: "./docs-for-testing"
-  output_dir: "."
+  output_dir: "output"
+  reports_dir: "reports"
+  artifacts_dir: "artifacts"
 
 # Model Provider Configurations
 providers:

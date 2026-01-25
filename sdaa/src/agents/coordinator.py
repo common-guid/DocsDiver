@@ -26,7 +26,7 @@ If the user asks to "audit the application" or "analyze the documentation," you 
 1.  **Delegate:** Execute all three agents in parallel or sequence.
 2.  **Synthesize:** Collect their Markdown reports.
 3.  **Correlate:** Look for "Cross-Context" vulnerabilities (see below).
-4.  **Report:** Generate the Master Audit Report.
+4.  **Report:** Generate the Master Audit Report and call `generate_final_report` with the full content.
 
 ## Mode B: "Specific Inquiry"
 If the user asks a specific question (e.g., "How does file upload security work?"), you must determine which agents are required.

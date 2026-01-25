@@ -52,11 +52,13 @@ def setup_instrumentation():
     has_exporter = False
 
     # --- Langfuse Setup ---
-    # Prefer LANGFUSE_HOST if set (OTLP endpoint base), otherwise fall back to
+    # Prefer LANGFUSE_HOST if set (OTEL endpoint base), otherwise fall back to
     # LANGFUSE_BASE_URL to match existing .env usage, and finally localhost.
     lf_host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "http://localhost:3000")
     lf_public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
     lf_secret_key = os.getenv("LANGFUSE_SECRET_KEY")
+    # Optional explicit override matching Langfuse OTEL docs (e.g. /api/public/otel/v1/traces)
+    lf_traces_endpoint = os.getenv("LANGFUSE_OTEL_TRACES_ENDPOINT")
 
     if lf_public_key and lf_secret_key:
         if not LANGFUSE_AVAILABLE:
@@ -77,7 +79,11 @@ def setup_instrumentation():
             if not lf_reachable:
                 print(f"Langfuse host {lf_host} not reachable; disabling Langfuse observability.")
             else:
-                lf_endpoint = f"{lf_host}/api/public/otlp/v1/traces"
+                if lf_traces_endpoint:
+                    lf_endpoint = lf_traces_endpoint
+                else:
+                    # Use documented OTEL traces endpoint: /api/public/otel/v1/traces
+                    lf_endpoint = f"{lf_host}/api/public/otel/v1/traces"
 
                 # Basic Auth Header
                 credentials = f"{lf_public_key}:{lf_secret_key}"
@@ -89,7 +95,7 @@ def setup_instrumentation():
                 )
                 provider.add_span_processor(BatchSpanProcessor(lf_exporter))
                 has_exporter = True
-                print(f"Langfuse observability initialized at {lf_host}")
+                print(f"Langfuse observability initialized at {lf_endpoint}")
     else:
         print("Langfuse credentials not found.")
 

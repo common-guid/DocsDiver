@@ -184,7 +184,8 @@ You can copy `.env.example` to `.env` and fill in the values:
   - `LANGSMITH_TRACING` (optional): Convenience flag included in `.env.example`; current instrumentation only requires `LANGSMITH_API_KEY` but this flag is useful for tooling or future toggles.
 - **Observability: Langfuse (all optional for core runtime)**
   - `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` (**both required to enable Langfuse**): If both are present, spans are exported to Langfuse.
-  - `LANGFUSE_HOST` (optional, default: `"http://localhost:3000"`): Langfuse host URL used to build the OTLP endpoint.
+  - `LANGFUSE_HOST` (optional, default: `"http://localhost:3000"`): Base URL for your Langfuse deployment; used to build the OTEL HTTP traces endpoint (`<LANGFUSE_HOST>/api/public/otel/v1/traces`).
+  - `LANGFUSE_OTEL_TRACES_ENDPOINT` (optional): Full OTEL HTTP traces endpoint override, e.g. `"http://localhost:3000/api/public/otel/v1/traces"`. If set, this takes precedence over `LANGFUSE_HOST`.
 - **Misc**
   - `LOG_LEVEL` (optional): Reserved for controlling log verbosity; currently not required for normal operation.
 

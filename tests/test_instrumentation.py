@@ -27,7 +27,7 @@ class TestInstrumentation(unittest.TestCase):
             # Note: Depending on logic, if only Langfuse vars are set, it's called once.
             self.assertEqual(MockExporter.call_count, 1)
             call_args = MockExporter.call_args
-            self.assertEqual(call_args.kwargs['endpoint'], "http://localhost:3000/api/public/otlp/v1/traces")
+            self.assertEqual(call_args.kwargs['endpoint'], "http://localhost:3000/api/public/otel/v1/traces")
             self.assertIn("Authorization", call_args.kwargs['headers'])
             self.assertTrue(call_args.kwargs['headers']['Authorization'].startswith("Basic "))
         else:
@@ -38,9 +38,9 @@ class TestInstrumentation(unittest.TestCase):
         # Wait, has_exporter logic: if Langfuse fails, has_exporter is False (unless LangSmith is also set).
         # In this test, only Langfuse vars are set. So if LANGFUSE_AVAILABLE is False, has_exporter is False.
         if LANGFUSE_AVAILABLE:
-             MockGoogleADK.return_value.instrument.assert_called_once()
+            MockGoogleADK.return_value.instrument.assert_called_once()
         else:
-             MockGoogleADK.return_value.instrument.assert_not_called()
+            MockGoogleADK.return_value.instrument.assert_not_called()
 
     @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
     @patch('sdaa.src.core.instrumentation.GoogleADKInstrumentor')

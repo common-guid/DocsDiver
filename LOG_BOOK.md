@@ -31,3 +31,5 @@ Added `tests/test_main_skip_map_maker.py` to verify Map Maker is called when ToC
 Updated README configuration guidance to include `system.output_dir` and added usage notes for `--skip-map-maker` to reuse an existing ToC.
 ## README toc-only docs | 2026-01-25
 Added README usage notes for `--toc-only` to generate `ToC.json` and exit without starting the interactive session.
+## Langfuse OTEL Endpoint Fix | 2026-01-25
+Updated `setup_instrumentation` to use the documented Langfuse OTEL HTTP traces endpoint (`/api/public/otel/v1/traces`), added an optional `LANGFUSE_OTEL_TRACES_ENDPOINT` override, and extended `scripts/validate_langfuse_conn.py` to validate end-to-end Langfuse connectivity.

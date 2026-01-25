@@ -2,67 +2,147 @@
   "files": [
     {
       "path": "auth.md",
-      "summary": "The application employs a stateless, JWT-based authentication system with role-based access control managed through dedicated registration and login API endpoints."
+      "summary": "```json\n{\n  \"summary\": \"This system provides stateless, role-based authentication using JSON Web Tokens (JWT) with endpoints for user registration and login.\",\n  \"tags\": [\"authentication\", \"jwt\", \"roles\"]\n}\n```",
+      "tags": [
+        "auth",
+        "auth",
+        "auth"
+      ]
     },
     {
       "path": "billing.md",
-      "summary": "The system manages multi-tiered subscriptions by generating monthly invoices, which become immutable once paid, and uses configuration flags to control features like offline payments."
+      "summary": "```json\n{\n  \"summary\": \"This document outlines the business logic for monthly invoicing, tiered subscription plans, and configurable payment options.\",\n  \"tags\": [\"billing\", \"subscriptions\", \"payments\"]\n}\n```",
+      "tags": [
+        "billing",
+        "billing",
+        "billing"
+      ]
     },
     {
       "path": "roles.md",
-      "summary": "The system's architecture is based on a simple role-based access control model with a `user` role limited to self-profile viewing and a default `admin` role whose permissions are undefined."
+      "summary": "```json\n{\n  \"summary\": \"The system defines `user` and `admin` roles to manage access, with the admin role being created by default.\",\n  \"tags\": [\n    \"roles\",\n    \"permissions\",\n    \"admin\"\n  ]\n}\n```",
+      "tags": [
+        "roles",
+        "roles",
+        "roles"
+      ]
     },
     {
       "path": "api.md",
-      "summary": "This version 1 REST API manages user profiles and administrative exports, and it integrates with AWS S3 to handle direct file uploads from clients."
+      "summary": "```json\n{\n  \"summary\": \"This document provides a reference for the API endpoints used for user profiles, file uploads to S3, and admin data exports, while also defining a key system boundary.\",\n  \"tags\": [\"api\", \"endpoints\", \"boundaries\"]\n}\n```",
+      "tags": [
+        "api",
+        "api",
+        "api"
+      ]
     },
     {
       "path": "api/api-overview#workspace-tokens.md",
-      "summary": "The company's public API enables programmatic control over project execution and workspace administration, secured via OAuth 2.0 using either temporary, user-permissioned personal tokens or persistent, admin-managed workspace tokens with configurable scopes."
+      "summary": "```json\n{\n  \"summary\": \"This document provides an overview of the company's API, which allows users to programmatically run projects and manage workspace administration tasks using OAuth 2.0 bearer tokens for authentication.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "overview",
+        "workspace"
+      ]
     },
     {
       "path": "api/api-overview#token-expiration.md",
-      "summary": "The company's API is an HTTP-based service that uses scoped OAuth 2.0 bearer tokens for authentication, enabling users to programmatically run projects and perform administrative tasks like managing users, groups, and data connections."
+      "summary": "```json\n{\n  \"summary\": \"The company API provides programmatic access for automating project runs and managing workspace resources like users, groups, and data connections via OAuth 2.0 bearer tokens.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "overview",
+        "token"
+      ]
     },
     {
       "path": "api/api-overview.md",
-      "summary": "The company API is a rate-limited HTTP service that uses personal or workspace-level OAuth 2.0 bearer tokens for authentication to programmatically manage project runs, user access, and data connections."
+      "summary": "```json\n{\n  \"summary\": \"This document provides an overview of a public API that allows teams to programmatically manage projects, users, and data connections within their workspace using OAuth 2.0 Bearer Token authentication.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "overview",
+        "overview"
+      ]
     },
     {
       "path": "api/api-reference.md",
-      "summary": "This versioned, bearer-authenticated RESTful API provides CRUD operations for managing resources like projects, groups, users, and data connections, with specialized functions to trigger project runs, monitor their status, and generate presigned URLs for embedding."
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the REST API endpoints for managing projects, runs, users, groups, data connections, and collections.\",\n  \"tags\": [\n    \"api\",\n    \"endpoints\",\n    \"projects\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "reference"
+      ]
     },
     {
       "path": "api/api-reference#operation/GetQueriedTables.md",
-      "summary": "This RESTful API provides comprehensive programmatic control over a data platform's resources, enabling the management of projects, data connections, users, and groups, as well as the ability to trigger asynchronous project runs and generate presigned URLs for embedding applications."
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the REST API for managing projects, runs, users, groups, collections, and data connections, as well as embedding applications.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"users\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     },
     {
       "path": "api/api-reference#operation/EditDataConnection.md",
-      "summary": "This bearer-authenticated RESTful API is architected around managing core resources like projects, users, and data connections, enabling key actions such as triggering project runs, controlling sharing permissions, and embedding applications via presigned URLs."
+      "summary": "```json\n{\n  \"summary\": \"This API specification details endpoints for programmatically managing projects, users, groups, collections, and data connections, as well as for embedding and running projects.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"embedding\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     },
     {
       "path": "api/api-reference#operation/ListProjects.md",
-      "summary": "This bearer-token-secured REST API provides comprehensive management of projects, users, groups, and data connections through CRUD operations, project execution workflows, detailed sharing controls, and embedding capabilities."
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the REST API endpoints for programmatically managing projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"endpoints\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     },
     {
       "path": "api/api-reference#operation/RunProject.md",
-      "summary": "This bearer-authenticated RESTful API enables the programmatic management of data-driven projects, covering their execution, access control policies, underlying data connections, and the generation of secure pre-signed URLs for embedding."
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the company External API endpoints for managing projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"embedding\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     },
     {
       "path": "api/api-reference#operation/GetProjectRuns.md",
-      "summary": "This bearer-authenticated REST API manages data-centric projects, users, and permissions through standard CRUD operations while also supporting advanced features like asynchronous project execution and the generation of secure embedding URLs."
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the external API for managing projects, runs, users, groups, collections, and data connections, including endpoints for creating, listing, and editing these resources.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"endpoints\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     },
     {
       "path": "api/api-reference#operation/CancelRun.md",
-      "summary": "This bearer-authenticated RESTful API is architected around the management, execution, and embedding of \"projects,\" with additional endpoints for administering related resources like users, groups, collections, and data connections."
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the company's external API for creating embedded URLs and managing projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"projects\",\n    \"embedding\",\n    \"sharing\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     },
     {
       "path": "api/api-reference#operation/CreateCollection.md",
-      "summary": "This RESTful API provides comprehensive control over data projects by managing their lifecycle, execution, and sharing permissions, alongside the administration of foundational resources like users, groups, collections, and data connections."
+      "summary": "```json\n{\n  \"summary\": \"This document specifies API endpoints for programmatically managing company resources, including projects, runs, sharing permissions, users, groups, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"management\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     },
     {
       "path": "api/api-reference#operation/EditCollection.md",
-      "summary": "This RESTful API provides endpoints to programmatically manage the lifecycle of data projects, including their execution, sharing, and embedding, alongside the administration of users, groups, and data connections."
+      "summary": "```json\n{\n  \"summary\": \"This API reference documents endpoints for managing company resources such as projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"projects\",\n    \"sharing\",\n    \"embedding\"\n  ]\n}\n```",
+      "tags": [
+        "api",
+        "reference",
+        "operation"
+      ]
     }
   ]
 }

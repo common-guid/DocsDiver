@@ -2,7 +2,7 @@
   "files": [
     {
       "path": "auth.md",
-      "summary": "```json\n{\n  \"summary\": \"This system provides stateless, role-based authentication using JSON Web Tokens (JWT) with endpoints for user registration and login.\",\n  \"tags\": [\"authentication\", \"jwt\", \"roles\"]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document describes a stateless authentication system using JWTs to manage guest, user, and admin roles through registration and login APIs.\",\n  \"tags\": [\"authentication\", \"jwt\", \"roles\"]\n}\n```",
       "tags": [
         "auth",
         "auth",
@@ -11,7 +11,7 @@
     },
     {
       "path": "billing.md",
-      "summary": "```json\n{\n  \"summary\": \"This document outlines the business logic for monthly invoicing, tiered subscription plans, and configurable payment options.\",\n  \"tags\": [\"billing\", \"subscriptions\", \"payments\"]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document outlines the system's billing logic, which includes monthly invoice generation, different subscription tiers, and a configuration for offline payments.\",\n  \"tags\": [\"billing\", \"subscriptions\", \"invoices\"]\n}\n```",
       "tags": [
         "billing",
         "billing",
@@ -20,7 +20,7 @@
     },
     {
       "path": "roles.md",
-      "summary": "```json\n{\n  \"summary\": \"The system defines `user` and `admin` roles to manage access, with the admin role being created by default.\",\n  \"tags\": [\n    \"roles\",\n    \"permissions\",\n    \"admin\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"The system defines `user` and `admin` roles with distinct permissions, where the admin account is created by default.\",\n  \"tags\": [\"roles\", \"permissions\", \"users\"]\n}\n```",
       "tags": [
         "roles",
         "roles",
@@ -29,7 +29,7 @@
     },
     {
       "path": "api.md",
-      "summary": "```json\n{\n  \"summary\": \"This document provides a reference for the API endpoints used for user profiles, file uploads to S3, and admin data exports, while also defining a key system boundary.\",\n  \"tags\": [\"api\", \"endpoints\", \"boundaries\"]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document defines a version 1 REST API with endpoints for user management, file uploads to S3, and administrative data exports, highlighting a key system boundary for data ingress.\",\n  \"tags\": [\n    \"api\",\n    \"endpoints\",\n    \"boundaries\"\n  ]\n}\n```",
       "tags": [
         "api",
         "api",
@@ -38,7 +38,7 @@
     },
     {
       "path": "api/api-overview#workspace-tokens.md",
-      "summary": "```json\n{\n  \"summary\": \"This document provides an overview of the company's API, which allows users to programmatically run projects and manage workspace administration tasks using OAuth 2.0 bearer tokens for authentication.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"The company API provides programmatic access to run projects and automate administrative workflows for users, groups, collections, and data connections using token-based authentication.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
       "tags": [
         "api",
         "overview",
@@ -47,7 +47,7 @@
     },
     {
       "path": "api/api-overview#token-expiration.md",
-      "summary": "```json\n{\n  \"summary\": \"The company API provides programmatic access for automating project runs and managing workspace resources like users, groups, and data connections via OAuth 2.0 bearer tokens.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document provides an overview of the company's public API, which enables programmatic project execution and administrative tasks through authentication with personal or workspace-level bearer tokens.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
       "tags": [
         "api",
         "overview",
@@ -56,7 +56,7 @@
     },
     {
       "path": "api/api-overview.md",
-      "summary": "```json\n{\n  \"summary\": \"This document provides an overview of a public API that allows teams to programmatically manage projects, users, and data connections within their workspace using OAuth 2.0 Bearer Token authentication.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"automation\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"The company's public API allows users to programmatically run projects and perform administrative tasks, using personal or workspace-scoped OAuth 2.0 bearer tokens for authentication.\",\n  \"tags\": [\n    \"api\",\n    \"authentication\",\n    \"projects\"\n  ]\n}\n```",
       "tags": [
         "api",
         "overview",
@@ -65,7 +65,7 @@
     },
     {
       "path": "api/api-reference.md",
-      "summary": "```json\n{\n  \"summary\": \"This document specifies the REST API endpoints for managing projects, runs, users, groups, data connections, and collections.\",\n  \"tags\": [\n    \"api\",\n    \"endpoints\",\n    \"projects\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document provides the OpenAPI specification for an external API that manages resources such as projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"endpoints\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -74,7 +74,7 @@
     },
     {
       "path": "api/api-reference#operation/GetQueriedTables.md",
-      "summary": "```json\n{\n  \"summary\": \"This document specifies the REST API for managing projects, runs, users, groups, collections, and data connections, as well as embedding applications.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"users\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"The company External API provides a set of RESTful endpoints for managing core resources such as projects, runs, users, groups, and data connections, and for creating embedded project URLs.\",\n  \"tags\": [\n    \"projects\",\n    \"embedding\",\n    \"runs\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -83,7 +83,7 @@
     },
     {
       "path": "api/api-reference#operation/EditDataConnection.md",
-      "summary": "```json\n{\n  \"summary\": \"This API specification details endpoints for programmatically managing projects, users, groups, collections, and data connections, as well as for embedding and running projects.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"embedding\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This API reference provides specifications for endpoints that manage projects, data connections, users, groups, and other platform resources.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"endpoints\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -92,7 +92,7 @@
     },
     {
       "path": "api/api-reference#operation/ListProjects.md",
-      "summary": "```json\n{\n  \"summary\": \"This document specifies the REST API endpoints for programmatically managing projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"endpoints\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This API provides a comprehensive set of endpoints for programmatically managing projects, runs, sharing, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"permissions\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -101,7 +101,7 @@
     },
     {
       "path": "api/api-reference#operation/RunProject.md",
-      "summary": "```json\n{\n  \"summary\": \"This document specifies the company External API endpoints for managing projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"embedding\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the company's external API for programmatically managing resources such as projects, runs, users, data connections, and collections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"embedding\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -110,7 +110,7 @@
     },
     {
       "path": "api/api-reference#operation/GetProjectRuns.md",
-      "summary": "```json\n{\n  \"summary\": \"This document specifies the external API for managing projects, runs, users, groups, collections, and data connections, including endpoints for creating, listing, and editing these resources.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"endpoints\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document specifies a REST API for managing company resources such as projects, project runs, users, sharing settings, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"sharing\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -119,7 +119,7 @@
     },
     {
       "path": "api/api-reference#operation/CancelRun.md",
-      "summary": "```json\n{\n  \"summary\": \"This document specifies the company's external API for creating embedded URLs and managing projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"projects\",\n    \"embedding\",\n    \"sharing\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document outlines the external API for managing company resources such as projects, runs, users, groups, data connections, and collections.\",\n  \"tags\": [\n    \"projects\",\n    \"permissions\",\n    \"embedding\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -128,7 +128,7 @@
     },
     {
       "path": "api/api-reference#operation/CreateCollection.md",
-      "summary": "```json\n{\n  \"summary\": \"This document specifies API endpoints for programmatically managing company resources, including projects, runs, sharing permissions, users, groups, and data connections.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"management\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document specifies the company External API for programmatically managing resources like projects, users, groups, data connections, and project runs.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"management\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",
@@ -137,7 +137,7 @@
     },
     {
       "path": "api/api-reference#operation/EditCollection.md",
-      "summary": "```json\n{\n  \"summary\": \"This API reference documents endpoints for managing company resources such as projects, runs, users, groups, collections, and data connections.\",\n  \"tags\": [\n    \"projects\",\n    \"sharing\",\n    \"embedding\"\n  ]\n}\n```",
+      "summary": "```json\n{\n  \"summary\": \"This document provides a comprehensive API specification for programmatically managing projects, runs, users, groups, data connections, and collections, as well as creating presigned URLs for embedding applications.\",\n  \"tags\": [\n    \"api\",\n    \"projects\",\n    \"embedding\"\n  ]\n}\n```",
       "tags": [
         "api",
         "reference",

@@ -7,6 +7,7 @@ from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+import requests
 
 try:
     from langfuse import LangfuseOtelSpanAttributes
@@ -51,7 +52,9 @@ def setup_instrumentation():
     has_exporter = False
 
     # --- Langfuse Setup ---
-    lf_host = os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+    # Prefer LANGFUSE_HOST if set (OTLP endpoint base), otherwise fall back to
+    # LANGFUSE_BASE_URL to match existing .env usage, and finally localhost.
+    lf_host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "http://localhost:3000")
     lf_public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
     lf_secret_key = os.getenv("LANGFUSE_SECRET_KEY")
 
@@ -63,19 +66,30 @@ def setup_instrumentation():
             if lf_host.endswith("/"):
                 lf_host = lf_host[:-1]
 
-            lf_endpoint = f"{lf_host}/api/public/otlp/v1/traces"
+            # Lightweight connectivity check: if Langfuse host is not reachable,
+            # skip configuring the exporter to avoid noisy connection errors.
+            try:
+                requests.get(lf_host, timeout=1)
+                lf_reachable = True
+            except Exception:
+                lf_reachable = False
 
-            # Basic Auth Header
-            credentials = f"{lf_public_key}:{lf_secret_key}"
-            auth_header = f"Basic {base64.b64encode(credentials.encode()).decode()}"
+            if not lf_reachable:
+                print(f"Langfuse host {lf_host} not reachable; disabling Langfuse observability.")
+            else:
+                lf_endpoint = f"{lf_host}/api/public/otlp/v1/traces"
 
-            lf_exporter = OTLPSpanExporter(
-                endpoint=lf_endpoint,
-                headers={"Authorization": auth_header}
-            )
-            provider.add_span_processor(BatchSpanProcessor(lf_exporter))
-            has_exporter = True
-            print(f"Langfuse observability initialized at {lf_host}")
+                # Basic Auth Header
+                credentials = f"{lf_public_key}:{lf_secret_key}"
+                auth_header = f"Basic {base64.b64encode(credentials.encode()).decode()}"
+
+                lf_exporter = OTLPSpanExporter(
+                    endpoint=lf_endpoint,
+                    headers={"Authorization": auth_header}
+                )
+                provider.add_span_processor(BatchSpanProcessor(lf_exporter))
+                has_exporter = True
+                print(f"Langfuse observability initialized at {lf_host}")
     else:
         print("Langfuse credentials not found.")
 

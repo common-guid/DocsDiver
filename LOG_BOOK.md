@@ -21,3 +21,5 @@ Created `scripts/validate_connections.py` to verify connectivity to Gemini and O
 Updated the Map Maker (`sdaa/src/core/map_maker.py`) so each ToC entry includes a summary and three keyword tags, and adjusted `tests/test_map_maker.py` to validate the new `tags` field.
 ## ToC Tag-Aware Agents | 2026-01-25
 Refined worker agent prompts in `sdaa/src/agents/workers.py` so the permissions, constraints, and boundaries agents treat ToC `tags` as primary metadata when deciding which documentation files to read.
+## Langfuse Offline Handling | 2026-01-25
+Improved `setup_instrumentation` so that Langfuse OTLP export is disabled gracefully when the configured `LANGFUSE_HOST` is unreachable, preventing noisy connection-refused stack traces during normal chat usage.

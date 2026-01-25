@@ -1,15 +1,23 @@
 import pytest
 from sdaa.src.core.map_maker import generate_toc
+from sdaa.src.core.config_loader import config_loader
 import os
 import json
 
 @pytest.mark.asyncio
 async def test_generate_toc():
+    toc_filename = config_loader.get("system.toc_filename", "ToC.json")
+    output_dir = config_loader.get_output_dir()
+    toc_path = os.path.join(output_dir, toc_filename)
+
+    # Ensure pre-existing ToC does not cause the skip guard to bypass generation
+    if os.path.exists(toc_path):
+        os.remove(toc_path)
+
     # Run async function
     await generate_toc()
 
-    # Check ToC.json exists
-    toc_path = "ToC.json" # Based on config default
+    # Check ToC.json exists at the resolved output path
     assert os.path.exists(toc_path)
 
     with open(toc_path) as f:

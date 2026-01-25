@@ -128,7 +128,15 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
 
 async def generate_toc(model=None):
     toc_filename = config_loader.get("system.toc_filename", "ToC.json")
-    print(f"Generating {toc_filename}...")
+    output_dir = config_loader.get_output_dir()
+    toc_path = os.path.join(output_dir, toc_filename)
+
+    # Optional guard so direct calls behave consistently with CLI behavior.
+    if os.path.exists(toc_path):
+        print(f"{toc_filename} already exists at {toc_path}. Skipping ToC generation.")
+        return
+
+    print(f"Generating {toc_filename} at {toc_path}...")
 
     try:
         files_output = list_files()
@@ -156,9 +164,9 @@ async def generate_toc(model=None):
     toc_data = {"files": toc_entries}
 
     try:
-        with open(toc_filename, 'w') as f:
+        with open(toc_path, 'w') as f:
             json.dump(toc_data, f, indent=2)
-        print(f"{toc_filename} generated with {len(toc_entries)} entries.")
+        print(f"{toc_filename} generated with {len(toc_entries)} entries at {toc_path}.")
     except Exception as e:
         print(f"Error writing ToC file: {e}")
 

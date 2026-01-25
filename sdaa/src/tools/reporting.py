@@ -1,6 +1,7 @@
 from typing import List, Dict, Union, Any
 from pydantic import BaseModel
 import os
+from sdaa.src.core.config_loader import config_loader
 
 class TestCase(BaseModel):
     id: str
@@ -27,15 +28,18 @@ class Vulnerability(BaseModel):
 
 def generate_final_report(report_content: str) -> str:
     """
-    Saves the final Master Audit Report to Security_Threat_Model.md.
+    Saves the final Master Audit Report under the configured output directory
+    as Security_Threat_Model.md.
+
     Args:
         report_content: The full markdown content of the report.
     Returns:
         Status message.
     """
     try:
-        # Save to root directory
-        filepath = os.path.abspath("Security_Threat_Model.md")
+        output_dir = config_loader.get_output_dir()
+        filepath = os.path.join(output_dir, "Security_Threat_Model.md")
+        filepath = os.path.abspath(filepath)
         with open(filepath, "w", encoding='utf-8') as f:
             f.write(report_content)
         return f"Report saved successfully to {filepath}."

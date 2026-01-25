@@ -28,7 +28,7 @@ Built with the **Google Agent Development Kit (ADK)**, it orchestrates a team of
     *   `coordinator.py`: Defines the Principal Security Architect (PSA) agent.
     *   `workers.py`: Defines the specialized sub-agents (Permissions, Constraints, Boundaries).
 *   `sdaa/src/core/`: Core system logic.
-    *   `map_maker.py`: Scans documentation to generate the semantic Table of Contents (`ToC.json`).
+    *   `map_maker.py`: Scans documentation to generate the semantic Table of Contents (`ToC.json`) under the configured output directory (`system.output_dir`).
 *   `sdaa/src/tools/`: Tool definitions used by the agents.
     *   `file_ops.py`: File system operations (`read_file`, `list_files`) for accessing documentation.
     *   `reporting.py`: Functions to log findings and generate the final report (`generate_final_report`).
@@ -53,12 +53,12 @@ The system operates on a **Coordinator-Worker** model:
 
 ### Data Flow
 
-1.  **Ingestion:** On startup, `MapMaker` scans `system.docs_root` and generates `ToC.json`, creating a "mental map" of the available documentation.
+1.  **Ingestion:** On startup, `MapMaker` scans `system.docs_root` and generates `ToC.json` under `system.output_dir` (default: project root), creating a "mental map" of the available documentation.
 2.  **Interaction:** The user provides a command via the CLI (e.g., "Audit the application").
 3.  **Delegation:** The Coordinator consults the `ToC.json` and instructs the relevant Worker Agents to analyze specific files using `read_file`.
 4.  **Analysis:** Workers parse the content, extract security insights, and report back to the Coordinator.
 5.  **Synthesis:** The Coordinator aggregates these findings, cross-references them for contradictions, and generates the **Master Audit Report**.
-6.  **Output:** The final report is saved to `Security_Threat_Model.md` via `generate_final_report`.
+6.  **Output:** The final report is saved as `Security_Threat_Model.md` under `system.output_dir` via `generate_final_report`.
 
 #### `ToC.json` structure and tags
 
@@ -108,7 +108,7 @@ The worker agents (permissions, constraints, boundaries) use these tags as their
     ```
 
 4.  **Configuration:**
-    *   Review `sdaa/config/config.yaml` to configure your documentation root path and model providers.
+    *   Review `sdaa/config/config.yaml` to configure your documentation root path, output directory, and model providers.
     *   Ensure your markdown documentation is placed in the directory specified by `system.docs_root` (default: `./docs-for-testing`).
 
 ---
@@ -131,11 +131,29 @@ python main.py
     *   **Specific Queries:** Ask questions like "How does the billing logic work?" or "List all public API endpoints."
 3.  **Output:** The agent streams its thought process and final reports to the console.
 
+### Skipping ToC generation
+
+If you already have a `ToC.json` in your configured `system.output_dir`, you can skip the Map Maker phase:
+
+```bash
+python main.py --skip-map-maker
+```
+
+### ToC-only mode
+
+If you only want to generate or refresh the `ToC.json` and then exit (no interactive session), run:
+
+```bash
+python main.py --toc-only
+```
+
 ### Configuration (`sdaa/config/config.yaml`)
 
 ```yaml
 system:
   docs_root: "./docs-for-testing" # Directory containing your markdown docs
+  toc_filename: "ToC.json"          # Name of the generated ToC file
+  output_dir: "."                  # Directory where ToC.json, reports, and artifacts are written
 
 providers:
   gemini:
@@ -145,7 +163,8 @@ providers:
 #### Config options
 
 - `system.docs_root` (**required for meaningful runs, default: `"./docs-for-testing"`**): Directory that will be scanned for markdown docs. You can change this to point at your own docs tree.
-- `system.toc_filename` (**optional, default: `"ToC.json"`**): Name of the file where the generated table of contents is written.
+- `system.output_dir` (**optional, default: `"."`**): Directory where SDAA writes generated artifacts such as `ToC.json`, `Security_Threat_Model.md`, and future reports. Use this to route all outputs to a dedicated folder (for example, `"./artifacts"`).
+- `system.toc_filename` (**optional, default: `"ToC.json"`**): Name of the file where the generated table of contents is written (within `system.output_dir`).
 - `providers.gemini.model_name` (**optional, default: `"gemini-1.5-pro"` in `config.yaml`**): Model used when you run with `--model gemini`.
 - `providers.openrouter.base_url` (**optional, default: `"https://openrouter.ai/api/v1"`**): OpenRouter-compatible API endpoint.
 - `providers.openrouter.model_name` (**optional, default: `"anthropic/claude-3-opus"`**): Model used when you run with `--model openrouter` (the default).

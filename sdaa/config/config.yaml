@@ -5,7 +5,7 @@ system:
 # Model Provider Configurations
 providers:
   gemini:
-    model_name: "gemini-1.5-pro"
+    model_name: "gemini-2.5-pro"
   openrouter:
     base_url: "https://openrouter.ai/api/v1"
     model_name: "anthropic/claude-3-opus"

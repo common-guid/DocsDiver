@@ -15,9 +15,14 @@ async def _summarize_file(filepath: str, model) -> str:
 
     prompt = f"Read the following content and provide a one-sentence architectural summary.\n\n{content}"
 
+    # Determine model name dynamically
+    model_name = getattr(model, "model", None)
+    if not model_name:
+         model_name = getattr(model, "model_name", "mock-model")
+
     # Create request
     request = LlmRequest(
-        model="mock-model",
+        model=model_name,
         contents=[types.Content(parts=[types.Part.from_text(text=prompt)])]
     )
 

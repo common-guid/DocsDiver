@@ -2,8 +2,7 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 from opentelemetry import trace
-from sdaa.src.core.instrumentation import setup_instrumentation, TaggingSpanProcessor
-from langfuse import LangfuseOtelSpanAttributes
+from sdaa.src.core.instrumentation import setup_instrumentation, TaggingSpanProcessor, LangfuseOtelSpanAttributes, LANGFUSE_AVAILABLE
 
 class TestInstrumentation(unittest.TestCase):
     @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
@@ -12,23 +11,32 @@ class TestInstrumentation(unittest.TestCase):
         "LANGFUSE_PUBLIC_KEY": "pk-lf-test",
         "LANGFUSE_SECRET_KEY": "sk-lf-test",
         "LANGFUSE_HOST": "http://localhost:3000"
-    })
+    }, clear=True)
     def test_setup_instrumentation(self, MockGoogleADK, MockExporter):
         # Reset trace provider to avoid conflict with other tests if run in suite
         trace.set_tracer_provider(None)
 
         setup_instrumentation()
 
-        # Check Exporter initialization for Langfuse (should be called once given env vars)
-        # Note: Depending on logic, if only Langfuse vars are set, it's called once.
-        self.assertEqual(MockExporter.call_count, 1)
-        call_args = MockExporter.call_args
-        self.assertEqual(call_args.kwargs['endpoint'], "http://localhost:3000/api/public/otlp/v1/traces")
-        self.assertIn("Authorization", call_args.kwargs['headers'])
-        self.assertTrue(call_args.kwargs['headers']['Authorization'].startswith("Basic "))
+        if LANGFUSE_AVAILABLE:
+            # Check Exporter initialization for Langfuse (should be called once given env vars)
+            # Note: Depending on logic, if only Langfuse vars are set, it's called once.
+            self.assertEqual(MockExporter.call_count, 1)
+            call_args = MockExporter.call_args
+            self.assertEqual(call_args.kwargs['endpoint'], "http://localhost:3000/api/public/otlp/v1/traces")
+            self.assertIn("Authorization", call_args.kwargs['headers'])
+            self.assertTrue(call_args.kwargs['headers']['Authorization'].startswith("Basic "))
+        else:
+            # If Langfuse is not available (e.g. Python 3.14 issue), it should skipped with a warning
+            self.assertEqual(MockExporter.call_count, 0)
 
-        # Check GoogleADK instrumentation
-        MockGoogleADK.return_value.instrument.assert_called_once()
+        # Check GoogleADK instrumentation (should happen regardless of Langfuse status, if has_exporter is True)
+        # Wait, has_exporter logic: if Langfuse fails, has_exporter is False (unless LangSmith is also set).
+        # In this test, only Langfuse vars are set. So if LANGFUSE_AVAILABLE is False, has_exporter is False.
+        if LANGFUSE_AVAILABLE:
+             MockGoogleADK.return_value.instrument.assert_called_once()
+        else:
+             MockGoogleADK.return_value.instrument.assert_not_called()
 
     @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
     @patch('sdaa.src.core.instrumentation.GoogleADKInstrumentor')
@@ -83,6 +91,31 @@ class TestInstrumentation(unittest.TestCase):
             mock_get_span.return_value = MagicMock()
             processor.on_start(mock_span, "some_context")
             mock_span.set_attribute.assert_not_called()
+
+    @patch('sdaa.src.core.instrumentation.LANGFUSE_AVAILABLE', False)
+    @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
+    @patch('sdaa.src.core.instrumentation.GoogleADKInstrumentor')
+    @patch.dict(os.environ, {
+        "LANGFUSE_PUBLIC_KEY": "pk-lf-test",
+        "LANGFUSE_SECRET_KEY": "sk-lf-test"
+    }, clear=True)
+    def test_setup_instrumentation_langfuse_unavailable(self, MockGoogleADK, MockExporter):
+        # Reset trace provider
+        trace.set_tracer_provider(None)
+
+        with patch('builtins.print') as mock_print:
+            setup_instrumentation()
+
+            # Should check for warning message
+            found_warning = False
+            for call in mock_print.call_args_list:
+                if "likely due to Python 3.14 incompatibility" in str(call):
+                    found_warning = True
+                    break
+            self.assertTrue(found_warning, "Should print warning when Langfuse is unavailable")
+
+        # Should not initialize exporter
+        MockExporter.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()

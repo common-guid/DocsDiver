@@ -40,3 +40,13 @@ Updated README usage and configuration notes to document the output directory an
 
 ### Next Steps & Continuity
 - Review README for any additional CLI flags that should be documented.
+
+## Phase: Observability Merge Fix | 2026-01-26
+Restored dual-platform tracing after merging Langfuse and LangSmith branches.
+
+### Tasks Completed
+- [x] Consolidated Langfuse and LangSmith setup into a single `setup_instrumentation` and attached both exporters to the same OpenTelemetry provider.
+- [x] Removed the duplicate `setup_instrumentation` definition that was overriding Langfuse configuration.
+
+### Next Steps & Continuity
+- If needed, run `scripts/validate_langfuse_conn.py` and `scripts/test_langsmith_tracing.py` to confirm traces arrive in both platforms.

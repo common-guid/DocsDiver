@@ -7,6 +7,7 @@ from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+from langsmith.integrations.otel import configure as configure_langsmith
 import requests
 
 try:
@@ -19,6 +20,7 @@ except Exception:
     LANGFUSE_AVAILABLE = False
 
 load_dotenv()
+
 
 class TaggingSpanProcessor(SpanProcessor):
     def on_start(self, span, parent_context):
@@ -47,9 +49,44 @@ class TaggingSpanProcessor(SpanProcessor):
     def force_flush(self, timeout_millis=30000):
         pass
 
+
 def setup_instrumentation():
-    provider = TracerProvider()
+    """Configure observability for LangSmith + Google ADK (and optionally Langfuse).
+
+    LangSmith tracing is configured via langsmith.integrations.otel.configure, which sets up
+    the OpenTelemetry exporter for LangSmith automatically. Langfuse continues to use a
+    manual OTLP exporter attached to the same or a new TracerProvider.
+    """
     has_exporter = False
+
+    # --- LangSmith Setup (via official ADK integration) ---
+    ls_api_key = os.getenv("LANGSMITH_API_KEY")
+    ls_project = os.getenv("LANGSMITH_PROJECT") or "ADK-DocsDiver"
+
+    if ls_api_key:
+        try:
+            configure_langsmith(project_name=ls_project)
+            print(f"LangSmith tracing configured for project {ls_project}")
+            has_exporter = True
+        except Exception as exc:
+            print(f"Warning: LangSmith configure() failed: {exc}")
+    else:
+        print("LangSmith API key not set. Skipping LangSmith tracing configuration.")
+
+    provider: TracerProvider
+    if ls_api_key:
+        # LangSmith configure() is expected to install a global TracerProvider.
+        current_provider = trace.get_tracer_provider()
+        if isinstance(current_provider, TracerProvider):
+            provider = current_provider
+        else:
+            # Fallback: if configure() used a different provider type, create our own for Langfuse.
+            provider = TracerProvider()
+            trace.set_tracer_provider(provider)
+    else:
+        # No LangSmith configured; create our own provider for Langfuse / custom tagging
+        provider = TracerProvider()
+        trace.set_tracer_provider(provider)
 
     # --- Langfuse Setup ---
     # Prefer LANGFUSE_HOST if set (OTEL endpoint base), otherwise fall back to
@@ -62,7 +99,10 @@ def setup_instrumentation():
 
     if lf_public_key and lf_secret_key:
         if not LANGFUSE_AVAILABLE:
-            print("Warning: Langfuse credentials found but langfuse library could not be imported (likely due to Python 3.14 incompatibility). Skipping Langfuse setup.")
+            print(
+                "Warning: Langfuse credentials found but langfuse library could not be imported "
+                "(likely due to Python 3.14 incompatibility). Skipping Langfuse setup."
+            )
         else:
             # Ensure host doesn't have trailing slash
             if lf_host.endswith("/"):
@@ -99,35 +139,8 @@ def setup_instrumentation():
     else:
         print("Langfuse credentials not found.")
 
-    # --- LangSmith Setup ---
-    ls_api_key = os.getenv("LANGSMITH_API_KEY")
-    # Optional: check LANGSMITH_TRACING=true, but key presence is usually the trigger.
-
-    if ls_api_key:
-        ls_host = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
-        if ls_host.endswith("/"):
-            ls_host = ls_host[:-1]
-
-        # Standard OTLP endpoint for LangSmith
-        ls_endpoint = f"{ls_host}/otel/v1/traces"
-
-        ls_project = os.getenv("LANGSMITH_PROJECT")
-
-        headers = {"x-api-key": ls_api_key}
-        if ls_project:
-            headers["x-langsmith-project"] = ls_project
-
-        ls_exporter = OTLPSpanExporter(
-            endpoint=ls_endpoint,
-            headers=headers
-        )
-        provider.add_span_processor(BatchSpanProcessor(ls_exporter))
-        has_exporter = True
-        print(f"LangSmith observability initialized at {ls_host}")
-    else:
-        print("LangSmith credentials not found.")
-
     if has_exporter:
+        # Root-span tagging for both LangSmith and Langfuse traces
         provider.add_span_processor(TaggingSpanProcessor())
         trace.set_tracer_provider(provider)
 
@@ -135,5 +148,7 @@ def setup_instrumentation():
         # This will auto-instrument the Google ADK classes to emit traces
         GoogleADKInstrumentor().instrument()
         print("Observability instrumentation complete.")
+        return True
     else:
         print("Warning: No observability credentials found. Observability disabled.")
+        return False

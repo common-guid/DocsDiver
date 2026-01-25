@@ -13,7 +13,7 @@ class TestInstrumentation(unittest.TestCase):
         "LANGFUSE_SECRET_KEY": "sk-lf-test",
         "LANGFUSE_HOST": "http://localhost:3000"
     }, clear=True)
-    def test_setup_instrumentation(self, MockGoogleADK, MockExporter, MockRequestsGet):
+    def test_setup_instrumentation_langfuse_only(self, MockGoogleADK, MockExporter, MockRequestsGet):
         # Reset trace provider to avoid conflict with other tests if run in suite
         trace.set_tracer_provider(None)
 
@@ -42,28 +42,26 @@ class TestInstrumentation(unittest.TestCase):
         else:
              MockGoogleADK.return_value.instrument.assert_not_called()
 
-    @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
     @patch('sdaa.src.core.instrumentation.GoogleADKInstrumentor')
+    @patch('sdaa.src.core.instrumentation.configure_langsmith')
     @patch.dict(os.environ, {
         "LANGSMITH_API_KEY": "ls_test_key",
-        "LANGSMITH_PROJECT": "ls_test_project",
-        "LANGSMITH_ENDPOINT": "https://api.test.com"
-    })
-    def test_setup_instrumentation_langsmith(self, MockGoogleADK, MockExporter):
+        "LANGSMITH_PROJECT": "ls_test_project"
+    }, clear=True)
+    def test_setup_instrumentation_langsmith(self, MockConfigureLangsmith, MockGoogleADK):
         # Clear Langfuse vars for this test to isolate LangSmith
-        with patch.dict(os.environ, {}, clear=True):
-             os.environ["LANGSMITH_API_KEY"] = "ls_test_key"
-             os.environ["LANGSMITH_PROJECT"] = "ls_test_project"
-             os.environ["LANGSMITH_ENDPOINT"] = "https://api.test.com"
+        with patch.dict(os.environ, {
+            "LANGSMITH_API_KEY": "ls_test_key",
+            "LANGSMITH_PROJECT": "ls_test_project",
+        }, clear=True):
+            trace.set_tracer_provider(None)
+            setup_instrumentation()
 
-             trace.set_tracer_provider(None)
-             setup_instrumentation()
-
-             self.assertEqual(MockExporter.call_count, 1)
-             call_args = MockExporter.call_args
-             self.assertEqual(call_args.kwargs['endpoint'], "https://api.test.com/otel/v1/traces")
-             self.assertEqual(call_args.kwargs['headers']['x-api-key'], "ls_test_key")
-             self.assertEqual(call_args.kwargs['headers']['x-langsmith-project'], "ls_test_project")
+            # configure_langsmith should be called with project_name from env
+            MockConfigureLangsmith.assert_called_once_with(project_name="ls_test_project")
+            # Langfuse exporter should not be configured (no Langfuse env vars),
+            # but GoogleADK instrumentation should still be initialized
+            MockGoogleADK.return_value.instrument.assert_called_once()
 
     def test_tagging_span_processor(self):
         processor = TaggingSpanProcessor()

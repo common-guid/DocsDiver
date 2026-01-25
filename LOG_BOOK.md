@@ -17,3 +17,7 @@ Validated the fix by running the application with `python main.py -m gemini`. Re
 Validated that the application starts and attempts API calls (confirmed by Quota Exceeded response).
 ## Connection Validation Scripts | 2026-01-24
 Created `scripts/validate_connections.py` to verify connectivity to Gemini and OpenRouter APIs. Updated `tests/test_instrumentation.py` to ensure regression testing for the Langfuse import failure scenario.
+## ToC Tag Generation | 2026-01-25
+Updated the Map Maker (`sdaa/src/core/map_maker.py`) so each ToC entry includes a summary and three keyword tags, and adjusted `tests/test_map_maker.py` to validate the new `tags` field.
+## ToC Tag-Aware Agents | 2026-01-25
+Refined worker agent prompts in `sdaa/src/agents/workers.py` so the permissions, constraints, and boundaries agents treat ToC `tags` as primary metadata when deciding which documentation files to read.

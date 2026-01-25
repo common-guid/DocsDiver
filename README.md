@@ -60,6 +60,32 @@ The system operates on a **Coordinator-Worker** model:
 5.  **Synthesis:** The Coordinator aggregates these findings, cross-references them for contradictions, and generates the **Master Audit Report**.
 6.  **Output:** The final report is saved to `Security_Threat_Model.md` via `generate_final_report`.
 
+#### `ToC.json` structure and tags
+
+The Map Maker writes a `ToC.json` file at the project root with the following shape:
+
+- Top-level object with a `files` array.
+- Each entry contains:
+  - `path`: relative path to the markdown file under `system.docs_root`.
+  - `summary`: a one-sentence architectural summary of that file.
+  - `tags`: **exactly three** short, lowercase keyword tags that describe the file (for example: `["auth", "jwt", "login"]`).
+
+Example:
+
+```json
+{
+  "files": [
+    {
+      "path": "./docs/auth.md",
+      "summary": "Authentication and login flows.",
+      "tags": ["auth", "jwt", "login"]
+    }
+  ]
+}
+```
+
+The worker agents (permissions, constraints, boundaries) use these tags as their primary index when deciding which documentation files to read for a given task, then rely on the summaries and full file contents for deeper analysis.
+
 ---
 
 ## 📦 Installation

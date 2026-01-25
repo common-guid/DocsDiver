@@ -17,8 +17,12 @@ async def test_generate_toc():
         assert "files" in data
         assert len(data["files"]) > 0
 
-        # Verify summary format (MockModel logic)
+        # Verify summary and tags format (MockModel logic)
         first = data["files"][0]
         assert "path" in first
         assert "summary" in first
+        assert "tags" in first
+        assert isinstance(first["tags"], list)
+        assert len(first["tags"]) == 3
+        assert all(isinstance(t, str) for t in first["tags"])
         # MockModel returns mock summary or logic based on content

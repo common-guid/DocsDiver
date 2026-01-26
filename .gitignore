@@ -126,3 +126,4 @@ dmypy.json
 test-runs_output
 IMPROVEMENTS.md
 ToC.json
+output/

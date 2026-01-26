@@ -74,8 +74,8 @@ Analyzed files: billing.md
     {
       "name": "Login API",
       "type": "Ingress",
-      "trust_zone_source": "Public Internet",
-      "trust_zone_destination": "Internal Network",
+      "trust_zone_source": "Public",
+      "trust_zone_destination": "Internal",
       "description": "User login endpoint",
       "risk_level": "High"
     }

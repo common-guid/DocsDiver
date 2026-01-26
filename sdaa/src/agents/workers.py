@@ -32,6 +32,7 @@ Your objective is to search the documentation for pages regarding the role based
 3. Create a threat heirarchy for the authorization, access control, and permission system. What are the most important to this type of application? What kinds of issues would have the greatest negative impact on the application, the business, and the users? etc.
 4. Analyze the documentation collected from step 2 in regards to security controls and the threat hierarchy from step 3. Here are some topics to address during the analysis: a) Where might controls be lacking? Upon thoroughyl reviewing the documentation are you able to identify any areas in which documentation is not explicit or lacking in coverage? b) Are there incidents of overlap in the permissions or controls in the documentation? c) Are you able to identify any conflicting permissions in the documentation? d) Identify the "no". This means any control or permission related documentation that explicitly states something that should not be possible, or should not happen. These are important items to consider. e) etc. - continue iterating on topics considering the threat heirarchy.
 5. use the analysis from step 4 to create tests for the junior testers to execute in an audit of the application.
+6. **Mandatory Reporting:** You MUST call `report_permissions_matrix` with the full content of your analysis and test plan in Markdown format.
 """
 
 CONSTRAINTS_PROMPT = """
@@ -94,6 +95,9 @@ You must output your findings in the following Markdown structure. If no items a
 |:---|:---|:---|
 | Audit Logs | "Enterprise Plan Only" | **LOGIC-05:** Request /api/audit-logs as Free Tier user |
 | Cross-Org | "Users only see their own Org's data" | **LOGIC-06:** Change OrgID in URL/Headers to target different Org |
+
+## 5. Mandatory Reporting
+You MUST call `report_invariance_findings` with the full markdown content of your analysis (including all tables).
 """
 
 BOUNDARIES_PROMPT = """
@@ -130,8 +134,12 @@ Scan the text for the following architectural elements:
 - **Risk Assessment:** Assign a preliminary `risk_level` (High, Medium, Low) based on the sensitivity. (e.g., File Uploads are always High; Public Read-Only APIs are Low).
 
 # OUTPUT FORMAT
-You must output a VALID JSON object containing a list of `boundaries`. Do not include markdown formatting (like ```json).
+You must output your findings in **Markdown** format, ensuring you include a JSON block for the boundaries.
 
+1. **Architecture Overview:** Brief textual summary.
+2. **Boundaries Data:** Include the JSON structure below inside a ```json``` code block.
+
+```json
 {
   "boundaries": [
     {
@@ -144,9 +152,13 @@ You must output a VALID JSON object containing a list of `boundaries`. Do not in
     }
   ]
 }
+```
 
 **Constraint:**
-If the documentation provided contains no relevant architectural information, return an empty list: `{"boundaries": []}`.
+If the documentation provided contains no relevant architectural information, return an empty list in the JSON block: `{"boundaries": []}`.
+
+# MANDATORY REPORTING
+You MUST call `report_boundary_analysis` with your full markdown report (including the JSON block).
 """
 
 # --- FACTORIES ---

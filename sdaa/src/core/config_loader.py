@@ -60,5 +60,27 @@ class ConfigLoader:
         os.makedirs(path, exist_ok=True)
         return path
 
+    def get_reports_dir(self) -> str:
+        """Resolve the configured reports directory and ensure it exists.
+
+        Returns the absolute path to output/reports/.
+        """
+        output_dir = self.get_output_dir()
+        reports_name = self.get("system.reports_dir", "reports")
+        path = os.path.join(output_dir, reports_name)
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def get_artifacts_dir(self) -> str:
+        """Resolve the configured artifacts directory and ensure it exists.
+
+        Returns the absolute path to output/artifacts/.
+        """
+        output_dir = self.get_output_dir()
+        artifacts_name = self.get("system.artifacts_dir", "artifacts")
+        path = os.path.join(output_dir, artifacts_name)
+        os.makedirs(path, exist_ok=True)
+        return path
+
 # Singleton access
 config_loader = ConfigLoader()

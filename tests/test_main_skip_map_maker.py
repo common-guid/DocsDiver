@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import main as app
 from sdaa.src.core.config_loader import config_loader
+from google.adk.models import BaseLlm
 
 
 def test_main_generates_toc_when_missing(monkeypatch, tmp_path):
@@ -117,14 +118,15 @@ def test_main_honors_skip_flag_even_without_toc(monkeypatch, tmp_path):
     assert not toc_path.exists()
 
 
-class _DummyModel:
+class _DummyModel(BaseLlm):
     """Minimal stand-in for Gemini/OpenRouter/MockModel in CLI tests."""
+    model: str = "dummy-model"
 
-    def __init__(self, model=None, model_name=None, base_url=None):  # pragma: no cover - trivial init
+    def __init__(self, model=None, model_name=None, base_url=None, **kwargs):  # pragma: no cover - trivial init
         # Preserve a model identifier so downstream code can inspect it if needed
-        self.model = model or model_name or "dummy-model"
+        super().__init__(model=model or model_name or "dummy-model", **kwargs)
 
-    async def generate_content_async(self, request):  # pragma: no cover - not exercised in these tests
+    async def generate_content_async(self, request, stream=False):  # pragma: no cover - not exercised in these tests
         if False:
             yield None
 

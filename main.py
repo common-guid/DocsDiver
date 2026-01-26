@@ -15,7 +15,7 @@ from google.adk.sessions import Session
 
 async def main():
     parser = argparse.ArgumentParser(description="SDAA: Security Documentation Analysis Agent")
-    parser.add_argument("-m", "--model", choices=["gemini", "openrouter"], default="openrouter", help="Model provider to use")
+    parser.add_argument("-m", "--model", choices=["gemini", "openrouter", "mock"], default="openrouter", help="Model provider to use")
     parser.add_argument("--skip-map-maker", action="store_true", help="Skip Map Maker and use an existing ToC.json if present")
     parser.add_argument("--toc-only", action="store_true", help="Run Map Maker only and exit before starting the coordinator")
     args = parser.parse_args()
@@ -80,6 +80,29 @@ async def main():
 
     except Exception as e:
         print(f"Error creating session: {e}")
+
+    # Ensure output directories exist
+    config_loader.get_reports_dir()
+    config_loader.get_artifacts_dir()
+
+    print("\n[Phase 2.5] Running Pre-chat Audit...")
+    try:
+        print("Coordinator> ", end="", flush=True)
+        async for event in runner.run_async(
+            user_id=user_id,
+            session_id=session_id,
+            new_message=types.Content(parts=[types.Part.from_text(text="Audit the application")])
+        ):
+            if event.content:
+                if hasattr(event.content, 'parts'):
+                        for part in event.content.parts:
+                            if part.text:
+                                print(part.text, end="", flush=True)
+                else:
+                    print(event.content, end="", flush=True)
+        print("\nAudit complete.")
+    except Exception as e:
+        print(f"\nError during audit: {e}")
 
     print("\n[Phase 3] Agent Ready. (Type 'exit' to quit)")
 

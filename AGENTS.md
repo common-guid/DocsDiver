@@ -28,3 +28,5 @@
 ```
 6. whenever possible Dockerize the application and use docker compose. 
 7. IF using python: ALWAYS use a python virtual env for python if not in a container.
+8. see the llms.txt file for links to the CrewAI documentation pages.
+9. See the OUTLINE.md file for a description of the project, and a high-level view of the project and implementation plan spec.

@@ -44,7 +44,8 @@ def test_main_generates_toc_when_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
     # Use --toc-only to exit before interactive session
-    monkeypatch.setattr(sys, "argv", ["main.py", "--toc-only"])
+    # We also use --no-rich to avoid terminal escape codes in test output
+    monkeypatch.setattr(sys, "argv", ["main.py", "--toc-only", "--no-rich"])
 
     asyncio.run(app.main())
 
@@ -76,7 +77,7 @@ def test_main_skips_toc_generation_when_file_exists(monkeypatch, tmp_path):
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
-    monkeypatch.setattr(sys, "argv", ["main.py", "--toc-only"])
+    monkeypatch.setattr(sys, "argv", ["main.py", "--toc-only", "--no-rich"])
 
     asyncio.run(app.main())
 
@@ -109,7 +110,7 @@ def test_main_honors_skip_flag_even_without_toc(monkeypatch, tmp_path):
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
-    monkeypatch.setattr(sys, "argv", ["main.py", "--skip-map-maker", "--toc-only"])
+    monkeypatch.setattr(sys, "argv", ["main.py", "--skip-map-maker", "--toc-only", "--no-rich"])
 
     asyncio.run(app.main())
 
@@ -195,7 +196,7 @@ def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, 
     # Exit the interactive loop immediately
     monkeypatch.setattr(builtins, "input", lambda prompt="": "exit")
 
-    monkeypatch.setattr(sys, "argv", ["main.py", "--skip-map-maker"])
+    monkeypatch.setattr(sys, "argv", ["main.py", "--skip-map-maker", "--no-rich"])
 
     asyncio.run(app.main())
 

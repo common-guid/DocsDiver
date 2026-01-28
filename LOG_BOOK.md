@@ -35,3 +35,7 @@ Added README usage notes for `--toc-only` to generate `ToC.json` and exit withou
 Updated `setup_instrumentation` to use the documented Langfuse OTEL HTTP traces endpoint (`/api/public/otel/v1/traces`), added an optional `LANGFUSE_OTEL_TRACES_ENDPOINT` override, and extended `scripts/validate_langfuse_conn.py` to validate end-to-end Langfuse connectivity.
 ## Langfuse + LangSmith unified instrumentation | 2026-01-26
 Consolidated tracing setup so both LangSmith and Langfuse exporters attach to the same OpenTelemetry provider, restoring dual-platform trace delivery after the branch merge.
+## python-dotenv dependency install | 2026-01-28
+Created a project virtual environment and installed requirements to resolve the missing `dotenv` import when running `main.py`.
+## Suppress google-genai non-text warning | 2026-01-28
+Added a targeted logging filter to silence the noisy non-text response warning while preserving normal tool-call behavior.

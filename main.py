@@ -2,6 +2,7 @@ import sys
 import asyncio
 import argparse
 import os
+import logging
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
@@ -12,18 +13,41 @@ from google.adk.models import Gemini
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 from google.adk.sessions import Session
+from sdaa.src.ui.rich_chat import RichUI
+def suppress_genai_non_text_warning() -> None:
+    """
+    Suppress the google-genai warning emitted when .text is accessed on responses
+    that include non-text parts (e.g., function_call). This keeps the CLI output
+    clean while preserving other warnings.
+    """
+    logger = logging.getLogger("google_genai.types")
+    for existing_filter in logger.filters:
+        if getattr(existing_filter, "_suppress_non_text_warning", False):
+            return
+
+    class _SuppressNonTextWarning(logging.Filter):
+        _suppress_non_text_warning = True
+
+        def filter(self, record: logging.LogRecord) -> bool:
+            message = record.getMessage()
+            return "non-text parts in the response" not in message
+
+    logger.addFilter(_SuppressNonTextWarning())
 
 async def main():
     parser = argparse.ArgumentParser(description="SDAA: Security Documentation Analysis Agent")
     parser.add_argument("-m", "--model", choices=["gemini", "openrouter", "mock"], default="openrouter", help="Model provider to use")
     parser.add_argument("--skip-map-maker", action="store_true", help="Skip Map Maker and use an existing ToC.json if present")
     parser.add_argument("--toc-only", action="store_true", help="Run Map Maker only and exit before starting the coordinator")
+    parser.add_argument("--no-rich", action="store_true", help="Disable Rich terminal UI and use plain text output")
     args = parser.parse_args()
 
+    ui = RichUI(no_rich=args.no_rich)
+    suppress_genai_non_text_warning()
+
     setup_instrumentation()
-    print("SDAA: Security Documentation Analysis Agent")
-    print("===========================================")
-    print(f"Using provider: {args.model}")
+    ui.print_banner("SDAA: Security Documentation Analysis Agent")
+    ui.print_status(f"Using provider: {args.model}")
 
     # Select model
     if args.model == "gemini":
@@ -45,23 +69,23 @@ async def main():
     toc_path = os.path.join(output_dir, toc_filename)
 
     if args.skip_map_maker:
-        print(f"\n[Phase 1] Skipping Map Maker due to --skip-map-maker flag. Expecting existing ToC at {toc_path}.")
+        ui.print_status(f"\n[Phase 1] Skipping Map Maker due to --skip-map-maker flag. Expecting existing ToC at {toc_path}.")
     elif os.path.exists(toc_path):
-        print(f"\n[Phase 1] Skipping Map Maker because existing ToC was found at {toc_path}.")
+        ui.print_status(f"\n[Phase 1] Skipping Map Maker because existing ToC was found at {toc_path}.")
     else:
-        print("\n[Phase 1] Initializing Map Maker...")
+        ui.print_status("\n[Phase 1] Initializing Map Maker...")
         try:
             await generate_toc(model=model)
-            print(f"ToC generation complete. Wrote ToC to {toc_path}.")
+            ui.print_status(f"ToC generation complete. Wrote ToC to {toc_path}.")
         except Exception as e:
-            print(f"Error generating ToC: {e}")
+            ui.print_error(f"generating ToC: {e}")
 
     if args.toc_only:
-        print("[Phase 1] --toc-only specified; exiting after Map Maker.")
+        ui.print_status("[Phase 1] --toc-only specified; exiting after Map Maker.")
         return
 
     # 2. Initialize Agent
-    print("\n[Phase 2] Initializing Coordinator...")
+    ui.print_status("\n[Phase 2] Initializing Coordinator...")
     coordinator = create_coordinator_agent(model=model)
 
     # Initialize Runner
@@ -79,60 +103,47 @@ async def main():
         # print(f"Session created: {session.id}")
 
     except Exception as e:
-        print(f"Error creating session: {e}")
+        ui.print_error(f"creating session: {e}")
 
     # Ensure output directories exist
     config_loader.get_reports_dir()
     config_loader.get_artifacts_dir()
 
-    print("\n[Phase 2.5] Running Pre-chat Audit...")
+    ui.print_status("\n[Phase 2.5] Running Pre-chat Audit...")
     try:
-        print("Coordinator> ", end="", flush=True)
-        async for event in runner.run_async(
-            user_id=user_id,
-            session_id=session_id,
-            new_message=types.Content(parts=[types.Part.from_text(text="Audit the application")])
-        ):
-            if event.content:
-                if hasattr(event.content, 'parts'):
-                        for part in event.content.parts:
-                            if part.text:
-                                print(part.text, end="", flush=True)
-                else:
-                    print(event.content, end="", flush=True)
-        print("\nAudit complete.")
+        await ui.stream_response(
+            runner.run_async(
+                user_id=user_id,
+                session_id=session_id,
+                new_message=types.Content(parts=[types.Part.from_text(text="Audit the application")])
+            ),
+            title="Coordinator (Audit)"
+        )
+        ui.print_status("Audit complete.")
     except Exception as e:
-        print(f"\nError during audit: {e}")
+        ui.print_error(f"\nduring audit: {e}")
 
-    print("\n[Phase 3] Agent Ready. (Type 'exit' to quit)")
+    ui.print_status("\n[Phase 3] Agent Ready. (Type 'exit' to quit)")
 
     while True:
         try:
-            user_input = input("\nUser> ")
+            user_input = ui.ask_user("\nUser> ")
             if user_input.lower() in ('exit', 'quit'):
                 break
 
-            print("Coordinator> ", end="", flush=True)
-
-            # run_async yields events.
-            async for event in runner.run_async(
-                user_id=user_id,
-                session_id=session_id,
-                new_message=types.Content(parts=[types.Part.from_text(text=user_input)])
-            ):
-                if event.content:
-                    if hasattr(event.content, 'parts'):
-                         for part in event.content.parts:
-                             if part.text:
-                                 print(part.text, end="", flush=True)
-                    else:
-                        print(event.content, end="", flush=True)
-            print() # Newline after response
+            await ui.stream_response(
+                runner.run_async(
+                    user_id=user_id,
+                    session_id=session_id,
+                    new_message=types.Content(parts=[types.Part.from_text(text=user_input)])
+                ),
+                title="Coordinator"
+            )
 
         except KeyboardInterrupt:
             break
         except Exception as e:
-            print(f"\nError: {e}")
+            ui.print_error(f"\n{e}")
             break
 
 if __name__ == "__main__":

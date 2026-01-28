@@ -50,3 +50,21 @@ Restored dual-platform tracing after merging Langfuse and LangSmith branches.
 
 ### Next Steps & Continuity
 - If needed, run `scripts/validate_langfuse_conn.py` and `scripts/test_langsmith_tracing.py` to confirm traces arrive in both platforms.
+
+## Phase: Environment Dependency Fix (python-dotenv) | 2026-01-28
+Resolved missing dependency errors when running the CLI by installing project requirements in a local virtual environment.
+
+### Tasks Completed
+- [x] Created `venv` in the project root and installed `requirements.txt` to provide `python-dotenv`.
+
+### Next Steps & Continuity
+- Re-run the CLI using `venv/bin/python main.py -m gemini` (or activate the venv) to confirm startup.
+
+## Phase: Gemini non-text warning suppression | 2026-01-28
+Addressed a noisy warning emitted by the google-genai SDK when tool calls return non-text parts during streaming.
+
+### Tasks Completed
+- [x] Added a targeted logging filter to suppress the specific "non-text parts in the response" warning during CLI runs.
+
+### Next Steps & Continuity
+- Re-run the CLI to confirm the warning no longer appears while tool calls continue to function.

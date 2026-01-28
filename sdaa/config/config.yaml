@@ -18,16 +18,16 @@ providers:
 agents:
   map_maker:
     provider: "gemini"
-    model: "gemini-2.5-flash"
+    model: "gemini-2.0-flash"
   coordinator:
     provider: "gemini"
     model: "gemini-2.5-pro"
   permissions_agent:
     provider: "gemini"
-    model: "gemini-2.5-pro"
+    model: "gemini-2.5-flash"
   constraints_agent:
     provider: "gemini"
-    model: "gemini-2.5-pro"
+    model: "gemini-2.5-flash"
   boundaries_agent:
     provider: "gemini"
-    model: "gemini-2.5-pro"
+    model: "gemini-2.5-flash"

@@ -1,6 +1,11 @@
 from crewai import Agent
 from src.tools.file_tools import ListFilesTool, ReadFileTool, SearchFilesTool
-from src.config.llm_config import get_supervisor_llm, get_worker_llm
+from src.config.llm_config import (
+    get_boundaries_llm,
+    get_negative_constraints_llm,
+    get_permissions_llm,
+    get_supervisor_llm,
+)
 
 class AuditAgents:
     def __init__(self):
@@ -9,7 +14,9 @@ class AuditAgents:
 
         # Load distinct LLMs
         self.supervisor_llm = get_supervisor_llm()
-        self.worker_llm = get_worker_llm()
+        self.negative_constraints_llm = get_negative_constraints_llm()
+        self.permissions_llm = get_permissions_llm()
+        self.boundaries_llm = get_boundaries_llm()
 
     def supervisor_agent(self) -> Agent:
         return Agent(
@@ -37,7 +44,7 @@ class AuditAgents:
             ),
             allow_delegation=False,
             verbose=True,
-            llm=self.worker_llm,
+            llm=self.negative_constraints_llm,
             tools=self.file_tools
         )
 
@@ -51,7 +58,7 @@ class AuditAgents:
             ),
             allow_delegation=False,
             verbose=True,
-            llm=self.worker_llm,
+            llm=self.permissions_llm,
             tools=self.file_tools
         )
 
@@ -65,6 +72,6 @@ class AuditAgents:
             ),
             allow_delegation=False,
             verbose=True,
-            llm=self.worker_llm,
+            llm=self.boundaries_llm,
             tools=self.file_tools
         )

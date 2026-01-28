@@ -2,11 +2,12 @@ import os
 import json
 from typing import List, Dict
 from litellm import completion
+from src.config.model_config import get_librarian_model
 
 class ToCGenerator:
-    def __init__(self, root_dir: str, model_name: str = "gemini/gemini-2.0-flash"):
+    def __init__(self, root_dir: str, model_name: str | None = None):
         self.root_dir = root_dir
-        self.model_name = model_name
+        self.model_name = model_name or get_librarian_model()
         self.toc_data: List[Dict] = []
 
     def _get_files(self) -> List[str]:

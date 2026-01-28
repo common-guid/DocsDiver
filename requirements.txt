@@ -3,3 +3,4 @@ crewai-tools
 pydantic
 litellm
 google-generativeai
+pyyaml

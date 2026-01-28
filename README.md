@@ -98,9 +98,21 @@ python src/main.py --dir /path/to/docs
 ```
 
 ### Model Configuration
-Edit `src/config/llm_config.py` to change model providers or names:
-- `SUPERVISOR_MODEL_NAME`
-- `WORKER_MODEL_NAME`
+Model names are configured in `config.yaml` at the project root:
+```
+librarian_model: "gemini/gemini-2.0-flash"
+supervisor_model: "gemini/gemini-2.5-pro"
+negative_constraints_model: "gemini/gemini-2.0-flash"
+permissions_model: "gemini/gemini-2.0-flash"
+boundaries_model: "gemini/gemini-2.0-flash"
+```
+
+Environment variables can override `config.yaml`:
+- `LIBRARIAN_MODEL`
+- `SUPERVISOR_MODEL`
+- `NEGATIVE_CONSTRAINTS_MODEL`
+- `PERMISSIONS_MODEL`
+- `BOUNDARIES_MODEL`
 
 ### File Tool Constraints
 The custom file tools only process **`.md` files**, and `SearchFilesTool` performs a **simple text search** (no regex) with a **3‑line before/after context window**.

@@ -2,7 +2,8 @@ import os
 from crewai import LLM
 
 # Define your specific model names here
-SUPERVISOR_MODEL_NAME = "openrouter/openai/gpt-4o"
+#SUPERVISOR_MODEL_NAME = "openrouter/openai/gpt-4o"
+SUPERVISOR_MODEL_NAME = "gemini/gemini-2.5-pro"
 WORKER_MODEL_NAME = "gemini/gemini-2.0-flash"
 
 def get_supervisor_llm():

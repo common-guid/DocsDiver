@@ -6,13 +6,23 @@ import logging
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
-from sdaa.src.agents.coordinator import create_coordinator_agent
+from sdaa.src.agents.coordinator import (
+    create_coordinator_agent,
+    create_coordinator_synthesizer
+)
+from sdaa.src.agents.workers import (
+    create_permissions_agent,
+    create_constraints_agent,
+    create_boundaries_agent
+)
 from sdaa.src.utils.mock_model import MockModel
 from sdaa.src.utils.openrouter_model import OpenRouterModel
+from google.adk.agents import SequentialAgent
 from google.adk.models import Gemini
-from google.adk.runners import InMemoryRunner
+from google.adk.runners import Runner
 from google.genai import types
-from google.adk.sessions import Session
+from google.adk.sessions import InMemorySessionService
+from google.adk.memory import InMemoryMemoryService
 from sdaa.src.ui.rich_chat import RichUI
 def suppress_genai_non_text_warning() -> None:
     """
@@ -33,6 +43,36 @@ def suppress_genai_non_text_warning() -> None:
             return "non-text parts in the response" not in message
 
     logger.addFilter(_SuppressNonTextWarning())
+
+def _expected_prechat_output_paths() -> list[str]:
+    artifacts_dir = config_loader.get_artifacts_dir()
+    reports_dir = config_loader.get_reports_dir()
+    return [
+        os.path.join(artifacts_dir, "permissions_agent.md"),
+        os.path.join(artifacts_dir, "constraints_agent.md"),
+        os.path.join(artifacts_dir, "boundaries_agent.md"),
+        os.path.join(reports_dir, "Security_Threat_Model.md"),
+    ]
+
+def get_missing_prechat_outputs() -> list[str]:
+    expected_paths = _expected_prechat_output_paths()
+    return [path for path in expected_paths if not os.path.exists(path)]
+
+def build_prechat_audit_agent(model) -> SequentialAgent:
+    permissions_agent = create_permissions_agent(model)
+    constraints_agent = create_constraints_agent(model)
+    boundaries_agent = create_boundaries_agent(model)
+    coordinator_synth = create_coordinator_synthesizer(model)
+
+    return SequentialAgent(
+        name="prechat_audit",
+        sub_agents=[
+            permissions_agent,
+            constraints_agent,
+            boundaries_agent,
+            coordinator_synth
+        ]
+    )
 
 async def main():
     parser = argparse.ArgumentParser(description="SDAA: Security Documentation Analysis Agent")
@@ -88,18 +128,32 @@ async def main():
     ui.print_status("\n[Phase 2] Initializing Coordinator...")
     coordinator = create_coordinator_agent(model=model)
 
+    session_service = InMemorySessionService()
+    memory_service = InMemoryMemoryService()
+
     # Initialize Runner
-    runner = InMemoryRunner(agent=coordinator, app_name="sdaa")
+    runner = Runner(
+        agent=coordinator,
+        app_name="sdaa",
+        session_service=session_service,
+        memory_service=memory_service
+    )
     session_id = "session_001"
     user_id = "user_001"
 
     # Create Session explicitly
     try:
-        session = await runner.session_service.create_session(
+        session = await session_service.get_session(
             app_name="sdaa",
             user_id=user_id,
             session_id=session_id
         )
+        if not session:
+            session = await session_service.create_session(
+                app_name="sdaa",
+                user_id=user_id,
+                session_id=session_id
+            )
         # print(f"Session created: {session.id}")
 
     except Exception as e:
@@ -108,20 +162,32 @@ async def main():
     # Ensure output directories exist
     config_loader.get_reports_dir()
     config_loader.get_artifacts_dir()
-
-    ui.print_status("\n[Phase 2.5] Running Pre-chat Audit...")
-    try:
-        await ui.stream_response(
-            runner.run_async(
-                user_id=user_id,
-                session_id=session_id,
-                new_message=types.Content(parts=[types.Part.from_text(text="Audit the application")])
-            ),
-            title="Coordinator (Audit)"
+    missing_outputs = get_missing_prechat_outputs()
+    if missing_outputs:
+        ui.print_status(
+            "\n[Phase 2.5] Running Pre-chat Audit (missing outputs detected)..."
         )
-        ui.print_status("Audit complete.")
-    except Exception as e:
-        ui.print_error(f"\nduring audit: {e}")
+        prechat_agent = build_prechat_audit_agent(model)
+        prechat_runner = Runner(
+            agent=prechat_agent,
+            app_name="sdaa",
+            session_service=session_service,
+            memory_service=memory_service
+        )
+        try:
+            await ui.stream_response(
+                prechat_runner.run_async(
+                    user_id=user_id,
+                    session_id=session_id,
+                    new_message=types.Content(parts=[types.Part.from_text(text="Audit the application")])
+                ),
+                title="Pre-chat Audit"
+            )
+            ui.print_status("Pre-chat audit complete.")
+        except Exception as e:
+            ui.print_error(f"\nduring pre-chat audit: {e}")
+    else:
+        ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (outputs present).")
 
     ui.print_status("\n[Phase 3] Agent Ready. (Type 'exit' to quit)")
 

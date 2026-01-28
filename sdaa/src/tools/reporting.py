@@ -1,7 +1,6 @@
-from typing import List, Dict, Union, Any
+from typing import List
 from pydantic import BaseModel
 import os
-import json
 from sdaa.src.core.config_loader import config_loader
 
 class TestCase(BaseModel):
@@ -83,28 +82,19 @@ def report_invariance_findings(findings: str) -> str:
     except Exception as e:
         return f"Error saving invariance findings: {str(e)}"
 
-def report_boundary_analysis(boundaries: Union[List[Dict[str, Any]], str]) -> str:
+def report_boundary_analysis(boundaries_markdown: str) -> str:
     """
     Logs the boundary analysis findings and saves to artifact file.
     Args:
-        boundaries: List of boundary objects or a markdown string.
+        boundaries_markdown: Markdown string containing boundary analysis findings.
     """
     try:
         artifacts_dir = config_loader.get_artifacts_dir()
         filepath = os.path.join(artifacts_dir, "boundaries_agent.md")
 
-        content = ""
-        if isinstance(boundaries, str):
-            content = boundaries
-        else:
-            # Convert list of dicts to a JSON block in Markdown
-            json_str = json.dumps({"boundaries": boundaries}, indent=2)
-            content = f"```json\n{json_str}\n```"
-
         with open(filepath, "w", encoding='utf-8') as f:
-            f.write(content)
+            f.write(boundaries_markdown)
 
-        count = len(boundaries) if isinstance(boundaries, list) else "N/A"
-        return f"Recorded boundary analysis ({count} items) and saved to {filepath}."
+        return f"Recorded boundary analysis and saved to {filepath}."
     except Exception as e:
         return f"Error saving boundary analysis: {str(e)}"

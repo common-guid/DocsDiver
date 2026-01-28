@@ -68,3 +68,25 @@ Addressed a noisy warning emitted by the google-genai SDK when tool calls return
 
 ### Next Steps & Continuity
 - Re-run the CLI to confirm the warning no longer appears while tool calls continue to function.
+
+## Phase: Pre-chat Sequential Audit Artifacts | 2026-01-28
+Implemented a deterministic pre-chat audit that runs workers sequentially, captures their outputs in session state, and synthesizes the final report only when outputs are missing.
+
+### Tasks Completed
+- [x] Added output capture for worker agents and strengthened prompts to return the same markdown passed to reporting tools.
+- [x] Added a synthesis-only coordinator to generate the final report from worker outputs in session state.
+- [x] Added pre-chat output gating and a sequential pre-chat audit pipeline that reuses the same session before the first user prompt.
+- [x] Added tests for pre-chat output gating and sequential agent ordering; updated CLI tests to reflect the new gating behavior.
+
+### Next Steps & Continuity
+- Run the full CLI with real models to confirm artifacts and report are generated sequentially when outputs are missing.
+
+## Phase: Boundary reporting schema fix | 2026-01-28
+Aligned the boundary reporting tool with Gemini tool schema requirements by accepting markdown-only input.
+
+### Tasks Completed
+- [x] Simplified `report_boundary_analysis` to accept only markdown strings and removed schema paths that caused invalid tool payloads.
+- [x] Updated reporting tool tests to reflect the markdown-only boundary reporting behavior.
+
+### Next Steps & Continuity
+- Re-run the CLI with Gemini to confirm the boundary artifact is created without tool schema errors.

@@ -1,0 +1,11 @@
+[project]
+name = "docsdiver"
+version = "0.1.0"
+requires-python = ">=3.12.12"
+dependencies = [
+    "crewai>=1.9.1",
+    "crewai-tools>=1.9.1",
+    "google-generativeai>=0.8.6",
+    "litellm>=1.75.3",
+    "pydantic>=2.11.10",
+]

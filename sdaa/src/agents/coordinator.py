@@ -1,4 +1,5 @@
 from google.adk.agents import LlmAgent
+from google.adk.agents.readonly_context import ReadonlyContext
 from sdaa.src.utils.mock_model import MockModel
 from sdaa.src.tools.file_ops import read_file
 from sdaa.src.tools.reporting import generate_final_report
@@ -72,6 +73,57 @@ When in "Full Audit" mode, your final response must use this structure:
 *   **Attribution:** When stating a fact, vaguely attribute it to the source document context provided by the sub-agents (e.g., "According to the Billing API docs...").
 """
 
+def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
+    permissions_report = (ctx.state.get("permissions_report") or "").strip()
+    constraints_report = (ctx.state.get("constraints_report") or "").strip()
+    boundaries_report = (ctx.state.get("boundaries_report") or "").strip()
+
+    if not permissions_report:
+        permissions_report = "MISSING: permissions_report"
+    if not constraints_report:
+        constraints_report = "MISSING: constraints_report"
+    if not boundaries_report:
+        boundaries_report = "MISSING: boundaries_report"
+
+    return f"""
+# Role
+You are the **Principal Security Architect (PSA)**. You must synthesize a final audit report from three worker reports provided below. Do NOT call or delegate to any other agents. You MUST call `generate_final_report` with the full markdown content of your final report.
+
+# Required Output Format: The Master Audit Report
+Your final response must use this structure:
+
+## 1. Executive Summary
+*High-level assessment of the application's security posture based on the documentation coverage.*
+
+## 2. Architecture & Trust Model
+*Synthesize the findings from the Boundary Mapper into a coherent paragraph describing the stack.*
+
+## 3. Key Findings & Risks
+*   **Contradictions:** [List conflicts between different documentation sections]
+*   **Missing Controls:** [List areas where documentation is silent on critical security]
+*   **Critical Logic Flaws:** [Highlights from the Logic Auditor]
+
+## 4. Master Test Plan (Consolidated)
+*Merge the test tables from all three agents into one master table. Remove duplicates. Prioritize by Risk.*
+
+| ID | Category | Test Scenario | Source Agent | Risk |
+|:---|:---|:---|:---|:---|
+
+# Source Reports
+## Permissions Report
+{permissions_report}
+
+## Constraints Report
+{constraints_report}
+
+## Boundaries Report
+{boundaries_report}
+
+# Mandatory Reporting
+1. Call `generate_final_report` with the full markdown you produce.
+2. After calling the tool, return the **exact same markdown** content and nothing else.
+"""
+
 def create_coordinator_agent(model=None):
     if model is None:
         model = MockModel(model="mock-model")
@@ -86,4 +138,15 @@ def create_coordinator_agent(model=None):
         model=model,
         tools=[read_file, generate_final_report],
         sub_agents=[permissions_agent, constraints_agent, boundaries_agent]
+    )
+
+def create_coordinator_synthesizer(model=None):
+    if model is None:
+        model = MockModel(model="mock-model")
+
+    return LlmAgent(
+        name="coordinator_psa",
+        instruction=_build_synthesis_prompt,
+        model=model,
+        tools=[generate_final_report]
     )

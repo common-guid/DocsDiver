@@ -69,6 +69,15 @@ def test_main_skips_toc_generation_when_file_exists(monkeypatch, tmp_path):
 
     output_dir.mkdir(parents=True, exist_ok=True)
     toc_path.write_text("{}", encoding="utf-8")
+    artifacts_dir = output_dir / config_loader.get("system.artifacts_dir", "artifacts")
+    reports_dir = output_dir / config_loader.get("system.reports_dir", "reports")
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    (artifacts_dir / "permissions_agent.md").write_text("perm", encoding="utf-8")
+    (artifacts_dir / "constraints_agent.md").write_text("constraints", encoding="utf-8")
+    (artifacts_dir / "boundaries_agent.md").write_text("boundaries", encoding="utf-8")
+    (reports_dir / "Security_Threat_Model.md").write_text("report", encoding="utf-8")
 
     calls = {"count": 0}
 
@@ -132,23 +141,6 @@ class _DummyModel(BaseLlm):
             yield None
 
 
-class _DummySessionService:
-    async def create_session(self, *args, **kwargs):  # pragma: no cover - trivial awaitable
-        return object()
-
-
-class _DummyRunner:
-    """Lightweight InMemoryRunner replacement for testing agent startup."""
-
-    def __init__(self, agent, app_name):  # pragma: no cover - trivial wiring
-        self.agent = agent
-        self.app_name = app_name
-        self.session_service = _DummySessionService()
-
-    async def run_async(self, **kwargs):  # pragma: no cover - we exit before using this
-        if False:
-            yield None
-
 
 def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, tmp_path):
     """Ensure that skipping Map Maker with an existing ToC still starts the coordinator.
@@ -181,7 +173,6 @@ def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, 
     monkeypatch.setattr(app, "OpenRouterModel", _DummyModel)
     monkeypatch.setattr(app, "Gemini", _DummyModel)
     monkeypatch.setattr(app, "MockModel", _DummyModel)
-    monkeypatch.setattr(app, "InMemoryRunner", _DummyRunner)
 
     # Capture that the coordinator is created successfully
     created = {"agent": None}

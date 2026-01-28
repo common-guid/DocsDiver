@@ -33,6 +33,7 @@ Your objective is to search the documentation for pages regarding the role based
 4. Analyze the documentation collected from step 2 in regards to security controls and the threat hierarchy from step 3. Here are some topics to address during the analysis: a) Where might controls be lacking? Upon thoroughyl reviewing the documentation are you able to identify any areas in which documentation is not explicit or lacking in coverage? b) Are there incidents of overlap in the permissions or controls in the documentation? c) Are you able to identify any conflicting permissions in the documentation? d) Identify the "no". This means any control or permission related documentation that explicitly states something that should not be possible, or should not happen. These are important items to consider. e) etc. - continue iterating on topics considering the threat heirarchy.
 5. use the analysis from step 4 to create tests for the junior testers to execute in an audit of the application.
 6. **Mandatory Reporting:** You MUST call `report_permissions_matrix` with the full content of your analysis and test plan in Markdown format.
+7. After calling `report_permissions_matrix`, return the **exact same Markdown** you passed to the tool as your final response, and nothing else.
 """
 
 CONSTRAINTS_PROMPT = """
@@ -98,6 +99,7 @@ You must output your findings in the following Markdown structure. If no items a
 
 ## 5. Mandatory Reporting
 You MUST call `report_invariance_findings` with the full markdown content of your analysis (including all tables).
+After calling `report_invariance_findings`, return the **exact same Markdown** you passed to the tool as your final response, and nothing else.
 """
 
 BOUNDARIES_PROMPT = """
@@ -159,6 +161,7 @@ If the documentation provided contains no relevant architectural information, re
 
 # MANDATORY REPORTING
 You MUST call `report_boundary_analysis` with your full markdown report (including the JSON block).
+After calling `report_boundary_analysis`, return the **exact same Markdown** you passed to the tool as your final response, and nothing else.
 """
 
 # --- FACTORIES ---
@@ -171,7 +174,8 @@ def create_permissions_agent(model=None):
         name="permissions_agent",
         instruction=PERMISSIONS_PROMPT,
         model=model,
-        tools=[read_file, list_files, report_permissions_matrix]
+        tools=[read_file, list_files, report_permissions_matrix],
+        output_key="permissions_report"
     )
 
 def create_constraints_agent(model=None):
@@ -182,7 +186,8 @@ def create_constraints_agent(model=None):
         name="constraints_agent",
         instruction=CONSTRAINTS_PROMPT,
         model=model,
-        tools=[read_file, list_files, report_invariance_findings]
+        tools=[read_file, list_files, report_invariance_findings],
+        output_key="constraints_report"
     )
 
 def create_boundaries_agent(model=None):
@@ -193,5 +198,6 @@ def create_boundaries_agent(model=None):
         name="boundaries_agent",
         instruction=BOUNDARIES_PROMPT,
         model=model,
-        tools=[read_file, list_files, report_boundary_analysis]
+        tools=[read_file, list_files, report_boundary_analysis],
+        output_key="boundaries_report"
     )

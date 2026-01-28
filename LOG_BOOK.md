@@ -39,3 +39,5 @@ Consolidated tracing setup so both LangSmith and Langfuse exporters attach to th
 Created a project virtual environment and installed requirements to resolve the missing `dotenv` import when running `main.py`.
 ## Suppress google-genai non-text warning | 2026-01-28
 Added a targeted logging filter to silence the noisy non-text response warning while preserving normal tool-call behavior.
+## Pre-chat sequential audit artifacts | 2026-01-28
+Implemented a sequential pre-chat audit pipeline that generates worker artifacts and the synthesized coordinator report only when outputs are missing, and added tests for gating and ordering.

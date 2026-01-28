@@ -2,6 +2,7 @@ import sys
 import asyncio
 import argparse
 import os
+import logging
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
@@ -13,6 +14,25 @@ from google.adk.runners import InMemoryRunner
 from google.genai import types
 from google.adk.sessions import Session
 from sdaa.src.ui.rich_chat import RichUI
+def suppress_genai_non_text_warning() -> None:
+    """
+    Suppress the google-genai warning emitted when .text is accessed on responses
+    that include non-text parts (e.g., function_call). This keeps the CLI output
+    clean while preserving other warnings.
+    """
+    logger = logging.getLogger("google_genai.types")
+    for existing_filter in logger.filters:
+        if getattr(existing_filter, "_suppress_non_text_warning", False):
+            return
+
+    class _SuppressNonTextWarning(logging.Filter):
+        _suppress_non_text_warning = True
+
+        def filter(self, record: logging.LogRecord) -> bool:
+            message = record.getMessage()
+            return "non-text parts in the response" not in message
+
+    logger.addFilter(_SuppressNonTextWarning())
 
 async def main():
     parser = argparse.ArgumentParser(description="SDAA: Security Documentation Analysis Agent")
@@ -23,6 +43,7 @@ async def main():
     args = parser.parse_args()
 
     ui = RichUI(no_rich=args.no_rich)
+    suppress_genai_non_text_warning()
 
     setup_instrumentation()
     ui.print_banner("SDAA: Security Documentation Analysis Agent")

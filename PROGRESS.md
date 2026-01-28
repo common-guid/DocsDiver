@@ -80,3 +80,13 @@ Implemented a deterministic pre-chat audit that runs workers sequentially, captu
 
 ### Next Steps & Continuity
 - Run the full CLI with real models to confirm artifacts and report are generated sequentially when outputs are missing.
+
+## Phase: Boundary reporting schema fix | 2026-01-28
+Aligned the boundary reporting tool with Gemini tool schema requirements by accepting markdown-only input.
+
+### Tasks Completed
+- [x] Simplified `report_boundary_analysis` to accept only markdown strings and removed schema paths that caused invalid tool payloads.
+- [x] Updated reporting tool tests to reflect the markdown-only boundary reporting behavior.
+
+### Next Steps & Continuity
+- Re-run the CLI with Gemini to confirm the boundary artifact is created without tool schema errors.

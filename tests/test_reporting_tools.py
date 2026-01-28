@@ -1,6 +1,5 @@
 import os
 import shutil
-import json
 import pytest
 from sdaa.src.tools.reporting import (
     generate_final_report,
@@ -64,18 +63,6 @@ def test_report_invariance_findings():
     with open(filepath, "r") as f:
         assert f.read() == content
 
-def test_report_boundary_analysis_list():
-    ensure_output_dirs()
-    data = [{"name": "Boundary 1", "type": "Ingress"}]
-    result = report_boundary_analysis(data)
-    assert "saved" in result
-
-    filepath = os.path.join(ARTIFACTS_DIR, "boundaries_agent.md")
-    assert os.path.exists(filepath)
-    with open(filepath, "r") as f:
-        content = f.read()
-        assert "```json" in content
-        assert "Boundary 1" in content
 
 def test_report_boundary_analysis_str():
     ensure_output_dirs()
@@ -96,7 +83,6 @@ if __name__ == "__main__":
         test_generate_final_report()
         test_report_permissions_matrix()
         test_report_invariance_findings()
-        test_report_boundary_analysis_list()
         test_report_boundary_analysis_str()
         print("All tests passed!")
     except Exception as e:

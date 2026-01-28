@@ -41,3 +41,5 @@ Created a project virtual environment and installed requirements to resolve the 
 Added a targeted logging filter to silence the noisy non-text response warning while preserving normal tool-call behavior.
 ## Pre-chat sequential audit artifacts | 2026-01-28
 Implemented a sequential pre-chat audit pipeline that generates worker artifacts and the synthesized coordinator report only when outputs are missing, and added tests for gating and ordering.
+## Boundary reporting schema fix | 2026-01-28
+Simplified the boundary reporting tool to accept markdown-only input to avoid invalid Gemini tool schemas, and updated tests accordingly.

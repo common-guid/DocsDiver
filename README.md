@@ -42,20 +42,27 @@ tests/
 ## Getting Started
 ### Prerequisites
 - Python 3.x
+- [uv](https://docs.astral.sh/uv/) installed
 - API keys:
   - `OPENROUTER_API_KEY` (Supervisor LLM)
   - `GEMINI_API_KEY` (Librarian + worker LLM)
 
-### 1) Create & activate a virtual environment
+### 1) Initialize uv (first time only)
+If this is your first time setting up the project with uv, from the project root run:
 ```bash
-python -m venv venv
-source venv/bin/activate
+uv init --bare
+uv add -r requirements.txt
 ```
+This will create a `pyproject.toml`, add everything from `requirements.txt` as dependencies, and create a managed virtual environment.
 
-### 2) Install dependencies
+After this initial migration, you can keep `requirements.txt` for reference or remove it once you are comfortable relying solely on `pyproject.toml`.
+
+### 2) Install/refresh dependencies
+Any time you pull new changes or update dependencies, run:
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
+This will (re)create the virtual environment as needed and install all dependencies declared in `pyproject.toml`.
 
 ### 3) Configure environment variables
 Create a `.env` file or export in your shell:
@@ -74,8 +81,9 @@ docs/
 ```
 
 ### 5) Run the audit
+Use uv to run the entry point within the managed environment:
 ```bash
-python src/main.py --dir ./docs
+uv run python src/main.py --dir ./docs
 ```
 
 ### Outputs
@@ -103,12 +111,12 @@ The custom file tools only process **`.md` files**, and `SearchFilesTool` perfor
 ## Testing
 Unit tests (fast, no LLM cost):
 ```bash
-python -m unittest tests/unit/test_tools.py
+uv run python -m unittest tests/unit/test_tools.py
 ```
 
 Integration test (runs a full audit, costs tokens):
 ```bash
-python -m unittest tests/integration/test_full_audit.py
+uv run python -m unittest tests/integration/test_full_audit.py
 ```
 
 ## Extending the System with Additional Agents

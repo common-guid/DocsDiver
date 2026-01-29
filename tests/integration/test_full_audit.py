@@ -8,6 +8,7 @@ from unittest.mock import patch, MagicMock
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from src.main import main
+from src.config.app_config import get_artifacts_dir, get_toc_path
 from tests.generate_fixtures import create_fixtures
 
 class TestAuditCrewIntegration(unittest.TestCase):
@@ -22,9 +23,11 @@ class TestAuditCrewIntegration(unittest.TestCase):
 
         # Mock ToC Generation to ensure a valid ToC.json exists
         # This bypasses the Rate Limit and ensures main() continues.
+        toc_path = get_toc_path()
         with patch('src.utils.toc_generator.ToCGenerator.generate') as mock_toc:
             def side_effect():
-                with open("ToC.json", "w") as f:
+                toc_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(toc_path, "w") as f:
                     json.dump([{
                         "file": "auth_bad.md",
                         "path": f"{test_dir}/auth_bad.md",
@@ -54,17 +57,20 @@ class TestAuditCrewIntegration(unittest.TestCase):
                     print(f"SystemExit: {e}")
 
     def test_report_exists(self):
-        self.assertTrue(os.path.exists("FINAL_AUDIT_REPORT.md"))
+        report_path = get_artifacts_dir() / "FINAL_AUDIT_REPORT.md"
+        self.assertTrue(report_path.exists())
 
     def test_canary_auth_found(self):
-        with open("FINAL_AUDIT_REPORT.md", "r") as f:
+        report_path = get_artifacts_dir() / "FINAL_AUDIT_REPORT.md"
+        with open(report_path, "r") as f:
             content = f.read().lower()
 
         self.assertTrue("retry" in content, "Report missed 'retry' keyword")
         self.assertTrue("limit" in content or "infinite" in content, "Report missed 'limit'/'infinite' keyword")
 
     def test_canary_upload_found(self):
-        with open("FINAL_AUDIT_REPORT.md", "r") as f:
+        report_path = get_artifacts_dir() / "FINAL_AUDIT_REPORT.md"
+        with open(report_path, "r") as f:
             content = f.read().lower()
 
         self.assertTrue("file" in content, "Report missed 'file' keyword")

@@ -1,25 +1,27 @@
 import os
 import sys
 import argparse
+from pathlib import Path
 from crewai import Crew, Process
 from src.utils.toc_generator import ToCGenerator
 from src.agents.agents import AuditAgents
 from src.agents.tasks import AuditTasks
+from src.config.app_config import get_artifacts_dir, get_docs_dir, get_toc_path
 
 def parse_args():
     parser = argparse.ArgumentParser(description="DocsDiver-Crew CLI")
     parser.add_argument(
         "--dir",
         type=str,
-        default="./docs",
-        help="Path to the documentation directory (default: ./docs)"
+        default=None,
+        help="Path to the documentation directory (overrides config.yaml docs_dir)"
     )
     return parser.parse_args()
 
-def validate_environment(target_dir):
+def validate_environment(target_dir: Path):
     """Fail fast if keys or dirs are missing."""
     # 1. Check Directory
-    if not os.path.exists(target_dir):
+    if not target_dir.exists():
         print(f"❌ Error: Directory '{target_dir}' does not exist.")
         sys.exit(1)
 
@@ -42,23 +44,27 @@ def check_token_limit(content: str, threshold: int = 500000):
 
 def main():
     args = parse_args()
-    DOCS_DIR = args.dir
-    TOC_FILE = "ToC.json"
+    docs_dir = get_docs_dir(args.dir)
+    toc_path = get_toc_path()
+    artifacts_dir = get_artifacts_dir()
 
-    print(f"\n🚀 Starting DocsDiver on: {DOCS_DIR}\n" + "="*40)
-    validate_environment(DOCS_DIR)
+    print(f"\n🚀 Starting DocsDiver on: {docs_dir}\n" + "="*40)
+    validate_environment(docs_dir)
 
     # --- Phase 2: Librarian ---
-    print("\n## 1. Running Librarian (ToC Generator)...")
-    toc_gen = ToCGenerator(root_dir=DOCS_DIR)
-    toc_gen.generate()
+    if toc_path.is_file():
+        print("\n## 1. Skipping Librarian (ToC already exists)...")
+    else:
+        print("\n## 1. Running Librarian (ToC Generator)...")
+        toc_gen = ToCGenerator(root_dir=str(docs_dir), output_path=str(toc_path))
+        toc_gen.generate()
 
     # Load ToC
     try:
-        with open(TOC_FILE, "r", encoding="utf-8") as f:
+        with open(toc_path, "r", encoding="utf-8") as f:
             toc_content = f.read()
     except FileNotFoundError:
-        print("❌ Error: ToC.json generation failed.")
+        print("❌ Error: ToC file was not found at the configured path.")
         sys.exit(1)
 
     check_token_limit(toc_content)
@@ -103,7 +109,8 @@ def main():
 
     # --- Phase 4: Output Handling ---
     print("\n## 4. Saving Report...")
-    output_filename = "FINAL_AUDIT_REPORT.md"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    output_filename = artifacts_dir / "FINAL_AUDIT_REPORT.md"
 
     # Convert result to string if it's a CrewOutput object
     final_content = str(result)

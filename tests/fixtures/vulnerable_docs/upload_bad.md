@@ -5,3 +5,4 @@
     The system accepts all file types to ensure compatibility with all cameras.
     There is no restriction on file extensions.
     (Ref: [CANARY-NEG-01])
+    

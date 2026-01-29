@@ -20,3 +20,9 @@ Installed LiteLLM proxy extras in the project venv to satisfy missing logging/pr
 
 ### Next Steps & Continuity
 If you want this to be persistent across environments, add `litellm[proxy]` to project dependencies.
+
+## Phase 8 Configurable Paths + ToC Skip | 2026-01-28
+Added app-level configuration for `docs_dir`, `toc_path`, and `artifacts` with env overrides and project-root resolution. The CLI now skips the Librarian when the configured ToC exists, the ToC generator writes to the configured path, and reports are saved under the artifacts directory. README and integration tests were updated accordingly.
+
+### Next Steps & Continuity
+If desired, run the integration test to validate the new paths and update `.gitignore` to exclude artifacts.

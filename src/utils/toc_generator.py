@@ -1,13 +1,15 @@
 import os
 import json
+from pathlib import Path
 from typing import List, Dict
 from litellm import completion
 from src.config.model_config import get_librarian_model
 
 class ToCGenerator:
-    def __init__(self, root_dir: str, model_name: str | None = None):
+    def __init__(self, root_dir: str, model_name: str | None = None, output_path: str | None = None):
         self.root_dir = root_dir
         self.model_name = model_name or get_librarian_model()
+        self.output_path = output_path or "ToC.json"
         self.toc_data: List[Dict] = []
 
     def _get_files(self) -> List[str]:
@@ -86,7 +88,8 @@ class ToCGenerator:
                 print(f"xx Critical error reading {file_path}: {e}")
 
         # Save to Disk
-        output_path = "ToC.json"
+        output_path = Path(self.output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(self.toc_data, f, indent=2)
 

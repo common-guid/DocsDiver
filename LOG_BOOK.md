@@ -6,3 +6,6 @@ Added `config.yaml` with environment-variable overrides and wired each agent to 
 
 ## LiteLLM proxy dependency fix | 2026-01-28
 Installed LiteLLM proxy extras in the project venv to resolve missing proxy logging dependencies (fastapi/apscheduler).
+
+## Configurable paths + ToC skip | 2026-01-28
+Added app configuration for docs input, ToC output, and artifacts output (with env overrides), and made the Librarian phase skip when a ToC already exists.

@@ -105,7 +105,7 @@ def main():
             verbose=True,
             planning=True,
             planning_llm=supervisor.llm,
-            memory=True
+            memory=False  # Disabled to avoid OpenAI-based default memory/embeddings
         )
 
         # --- Execution ---

@@ -1,3 +1,7 @@
+from src.bootstrap_env import init_env
+
+init_env()
+
 from crewai import Agent
 from src.tools.file_tools import ListFilesTool, ReadFileTool, SearchFilesTool
 from src.config.llm_config import (

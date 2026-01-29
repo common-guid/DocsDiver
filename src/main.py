@@ -2,11 +2,20 @@ import os
 import sys
 import argparse
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from src.bootstrap_env import init_env
+
+init_env()
+
 from crewai import Crew, Process
 from src.utils.toc_generator import ToCGenerator
 from src.agents.agents import AuditAgents
 from src.agents.tasks import AuditTasks
 from src.config.app_config import get_artifacts_dir, get_docs_dir, get_toc_path
+from src.observability import PROJECT_TAG, run_trace, setup_observability
 
 def parse_args():
     parser = argparse.ArgumentParser(description="DocsDiver-Crew CLI")
@@ -43,83 +52,83 @@ def check_token_limit(content: str, threshold: int = 500000):
         print(f"ℹ️  ToC Context Size: ~{int(estimated_tokens)} tokens (Safe)")
 
 def main():
+    setup_observability()
     args = parse_args()
     docs_dir = get_docs_dir(args.dir)
     toc_path = get_toc_path()
     artifacts_dir = get_artifacts_dir()
+    with run_trace(tags=[PROJECT_TAG]):
+        print(f"\n🚀 Starting DocsDiver on: {docs_dir}\n" + "="*40)
+        validate_environment(docs_dir)
+        # --- Phase 2: Librarian ---
+        if toc_path.is_file():
+            print("\n## 1. Skipping Librarian (ToC already exists)...")
+        else:
+            print("\n## 1. Running Librarian (ToC Generator)...")
+            toc_gen = ToCGenerator(root_dir=str(docs_dir), output_path=str(toc_path))
+            toc_gen.generate()
 
-    print(f"\n🚀 Starting DocsDiver on: {docs_dir}\n" + "="*40)
-    validate_environment(docs_dir)
+        # Load ToC
+        try:
+            with open(toc_path, "r", encoding="utf-8") as f:
+                toc_content = f.read()
+        except FileNotFoundError:
+            print("❌ Error: ToC file was not found at the configured path.")
+            sys.exit(1)
 
-    # --- Phase 2: Librarian ---
-    if toc_path.is_file():
-        print("\n## 1. Skipping Librarian (ToC already exists)...")
-    else:
-        print("\n## 1. Running Librarian (ToC Generator)...")
-        toc_gen = ToCGenerator(root_dir=str(docs_dir), output_path=str(toc_path))
-        toc_gen.generate()
+        check_token_limit(toc_content)
 
-    # Load ToC
-    try:
-        with open(toc_path, "r", encoding="utf-8") as f:
-            toc_content = f.read()
-    except FileNotFoundError:
-        print("❌ Error: ToC file was not found at the configured path.")
-        sys.exit(1)
+        # --- Phase 3: Crew Setup ---
+        print("\n## 2. Initializing Agents & Tasks...")
+        agents = AuditAgents()
+        tasks = AuditTasks()
 
-    check_token_limit(toc_content)
+        # Instantiate Agents
+        supervisor = agents.supervisor_agent()
+        neg_agent = agents.negative_constraints_agent()
+        perm_agent = agents.permissions_agent()
+        bound_agent = agents.boundaries_agent()
 
-    # --- Phase 3: Crew Setup ---
-    print("\n## 2. Initializing Agents & Tasks...")
-    agents = AuditAgents()
-    tasks = AuditTasks()
+        # Instantiate Tasks
+        supervisor_task = tasks.supervisor_orchestration_task(supervisor, toc_content)
 
-    # Instantiate Agents
-    supervisor = agents.supervisor_agent()
-    neg_agent = agents.negative_constraints_agent()
-    perm_agent = agents.permissions_agent()
-    bound_agent = agents.boundaries_agent()
+        # We assign worker tasks to the crew structure,
+        # but the Supervisor will dynamically delegate to them.
+        # (CrewAI Hierarchical processes usually auto-assign,
+        # but defining them here ensures the specialized tasks exist).
 
-    # Instantiate Tasks
-    supervisor_task = tasks.supervisor_orchestration_task(supervisor, toc_content)
+        doc_audit_crew = Crew(
+            agents=[neg_agent, perm_agent, bound_agent],
+            manager_agent=supervisor,
+            tasks=[supervisor_task],
+            process=Process.hierarchical,
+            verbose=True,
+            planning=True,
+            planning_llm=supervisor.llm,
+            memory=True
+        )
 
-    # We assign worker tasks to the crew structure,
-    # but the Supervisor will dynamically delegate to them.
-    # (CrewAI Hierarchical processes usually auto-assign,
-    # but defining them here ensures the specialized tasks exist).
+        # --- Execution ---
+        print("\n## 3. Kicking off Audit Crew (this may take time)...")
+        try:
+            result = doc_audit_crew.kickoff()
+        except Exception as e:
+            print(f"\n❌ Crew Execution Failed: {e}")
+            sys.exit(1)
 
-    doc_audit_crew = Crew(
-        agents=[neg_agent, perm_agent, bound_agent],
-        manager_agent=supervisor,
-        tasks=[supervisor_task],
-        process=Process.hierarchical,
-        verbose=True,
-        planning=True,
-        planning_llm=supervisor.llm,
-        memory=True
-    )
+        # --- Phase 4: Output Handling ---
+        print("\n## 4. Saving Report...")
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        output_filename = artifacts_dir / "FINAL_AUDIT_REPORT.md"
 
-    # --- Execution ---
-    print("\n## 3. Kicking off Audit Crew (this may take time)...")
-    try:
-        result = doc_audit_crew.kickoff()
-    except Exception as e:
-        print(f"\n❌ Crew Execution Failed: {e}")
-        sys.exit(1)
+        # Convert result to string if it's a CrewOutput object
+        final_content = str(result)
 
-    # --- Phase 4: Output Handling ---
-    print("\n## 4. Saving Report...")
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
-    output_filename = artifacts_dir / "FINAL_AUDIT_REPORT.md"
+        with open(output_filename, "w", encoding="utf-8") as f:
+            f.write(final_content)
 
-    # Convert result to string if it's a CrewOutput object
-    final_content = str(result)
-
-    with open(output_filename, "w", encoding="utf-8") as f:
-        f.write(final_content)
-
-    print(f"✅ Success! Report saved to: {os.path.abspath(output_filename)}")
-    print("="*40 + "\n")
+        print(f"✅ Success! Report saved to: {os.path.abspath(output_filename)}")
+        print("="*40 + "\n")
 
 if __name__ == "__main__":
     main()

@@ -4,3 +4,8 @@ pydantic
 litellm
 google-generativeai
 pyyaml
+python-dotenv
+openlit
+opentelemetry-exporter-otlp
+langfuse
+langsmith[otel]

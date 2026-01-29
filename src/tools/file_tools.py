@@ -1,6 +1,10 @@
 import os
 from typing import List, Type
 from pydantic import BaseModel, Field
+from src.bootstrap_env import init_env
+
+init_env()
+
 from crewai.tools import BaseTool
 
 # --- 1. List Files Tool ---

@@ -120,6 +120,19 @@ Environment variables can override `config.yaml`:
 - `TOC_PATH`
 - `ARTIFACTS_DIR`
 
+## Observability (LangSmith + Langfuse)
+DocsDiver initializes OpenLit and exports OpenTelemetry traces to **both** Langfuse and LangSmith, so each run shares the same spans. A project label/tag of `crewai_docsdiver` is applied to both systems.
+
+Required environment variables:
+- Langfuse: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and either:
+  - `LANGFUSE_BASE_URL` (e.g. `http://localhost:3000`), or
+  - `LANGFUSE_OTEL_TRACES_ENDPOINT` pointing at the OTLP base URL (e.g. `http://localhost:3000/api/public/otel`).
+
+  Note: OTLP HTTP exporters append `/v1/traces` automatically, so do **not** include `/v1/traces` in the base URL.
+- LangSmith: `LANGSMITH_API_KEY` and `LANGSMITH_ENDPOINT` (defaults to `https://api.smith.langchain.com`)
+
+During development, the `.env` file is loaded automatically at startup. In production, set these variables in your environment.
+
 ### File Tool Constraints
 The custom file tools only process **`.md` files**, and `SearchFilesTool` performs a **simple text search** (no regex) with a **3‑line before/after context window**.
 

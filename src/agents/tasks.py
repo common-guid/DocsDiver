@@ -1,3 +1,7 @@
+from src.bootstrap_env import init_env
+
+init_env()
+
 from crewai import Task
 
 class AuditTasks:

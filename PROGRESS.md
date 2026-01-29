@@ -26,3 +26,15 @@ Added app-level configuration for `docs_dir`, `toc_path`, and `artifacts` with e
 
 ### Next Steps & Continuity
 If desired, run the integration test to validate the new paths and update `.gitignore` to exclude artifacts.
+
+## Phase 9 Observability: LangSmith + Langfuse | 2026-01-29
+Integrated OpenTelemetry observability via OpenLit, exporting shared traces to Langfuse and LangSmith, and applied the `crewai_docsdiver` label/tag. Added dependencies, bootstrap logic, and documentation.
+
+### Next Steps & Continuity
+Integration tests passed; OTEL export 404s were addressed in Phase 10. If desired, investigate tracer provider override warnings to reduce noisy logs.
+
+## Phase 10 Observability Fix: Langfuse + LangSmith OTLP Endpoints | 2026-01-29
+Resolved OTEL exporter 404s by normalizing the Langfuse OTLP base endpoint (OpenTelemetry HTTP exporters append `/v1/traces`) and switching LangSmith export to the official `langsmith[otel]` span processor so it targets `/otel/v1/traces` and honors `LANGSMITH_PROJECT`.
+
+### Next Steps & Continuity
+Run `uv run python src/main.py` and confirm new traces appear in both Langfuse (tagged `crewai_docsdiver`) and LangSmith (under `LANGSMITH_PROJECT`). If spans are still missing, investigate the OpenLit `litellm` instrumentation warning and confirm the Langfuse server is reachable from this machine.

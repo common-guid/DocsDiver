@@ -1,0 +1,8 @@
+librarian_model: "gemini/gemini-2.0-flash"
+supervisor_model: "gemini/gemini-2.5-pro"
+negative_constraints_model: "gemini/gemini-2.5-flash"
+permissions_model: "gemini/gemini-2.0-flash"
+boundaries_model: "gemini/gemini-2.5-flash"
+docs_dir: "./docs"
+toc_path: "./ToC.json"
+artifacts: "./artifacts"

@@ -90,3 +90,13 @@ Aligned the boundary reporting tool with Gemini tool schema requirements by acce
 
 ### Next Steps & Continuity
 - Re-run the CLI with Gemini to confirm the boundary artifact is created without tool schema errors.
+
+## Phase: ToC.json accessibility fix | 2026-01-30
+Ensured agents can read the generated ToC.json from the configured output directory during pre-chat and interactive audits.
+
+### Tasks Completed
+- [x] Updated `sdaa/src/tools/file_ops.py` so `read_file("ToC.json")` resolves to the ToC in `system.output_dir` instead of the docs root.
+- [x] Verified configuration and main CLI flow to confirm ToC generation still targets the output directory and agents continue to rely on `read_file` for access.
+
+### Next Steps & Continuity
+- Re-run the CLI with a full pre-chat audit to confirm the recommendation about missing ToC.json no longer appears and workers successfully use the table of contents.

@@ -43,3 +43,5 @@ Added a targeted logging filter to silence the noisy non-text response warning w
 Implemented a sequential pre-chat audit pipeline that generates worker artifacts and the synthesized coordinator report only when outputs are missing, and added tests for gating and ordering.
 ## Boundary reporting schema fix | 2026-01-28
 Simplified the boundary reporting tool to accept markdown-only input to avoid invalid Gemini tool schemas, and updated tests accordingly.
+## ToC.json accessibility fix | 2026-01-30
+Updated `sdaa/src/tools/file_ops.py` so `read_file("ToC.json")` reads the table of contents from the configured `system.output_dir`, allowing pre-chat and interactive agents to consume the generated ToC.

@@ -1,35 +1,48 @@
 import os
 from sdaa.src.core.config_loader import config_loader
 
+
 def _get_docs_root():
     return os.path.abspath(config_loader.get("system.docs_root", "./docs"))
 
+
 def read_file(file_path: str) -> str:
-    """
-    Reads the content of a file.
+    """Read the content of a file within the docs root or the generated ToC.
+
     Args:
-        file_path: Path to the file, relative to the docs root.
+        file_path: Path to the file, usually relative to the docs root.
+
     Returns:
-        The content of the file.
+        The content of the file, or an error string if it cannot be read.
+
     Raises:
-        ValueError: If the file path is outside the docs root.
-        FileNotFoundError: If the file does not exist.
+        ValueError: If the file path is outside the documentation root (except ToC).
     """
     docs_root = _get_docs_root()
-    # Handle absolute paths if they start with docs_root, otherwise treat as relative
-    if os.path.isabs(file_path):
-        full_path = os.path.abspath(file_path)
-    else:
-        full_path = os.path.abspath(os.path.join(docs_root, file_path))
+    toc_filename = config_loader.get("system.toc_filename", "ToC.json")
 
-    if not full_path.startswith(docs_root):
-        raise ValueError(f"Access denied: {file_path} is outside the documentation root.")
+    # Special-case: allow agents to read the generated ToC.json from the
+    # configured output directory, even though it lives outside docs_root.
+    if os.path.basename(file_path) == toc_filename:
+        output_dir = config_loader.get_output_dir()
+        full_path = os.path.abspath(os.path.join(output_dir, toc_filename))
+    else:
+        # Handle absolute paths if they start with docs_root, otherwise treat as relative
+        if os.path.isabs(file_path):
+            full_path = os.path.abspath(file_path)
+        else:
+            full_path = os.path.abspath(os.path.join(docs_root, file_path))
+
+        if not full_path.startswith(docs_root):
+            raise ValueError(
+                f"Access denied: {file_path} is outside the documentation root."
+            )
 
     if not os.path.exists(full_path):
         return f"Error: File not found: {file_path}"
 
     try:
-        with open(full_path, 'r', encoding='utf-8') as f:
+        with open(full_path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         return f"Error reading file: {str(e)}"

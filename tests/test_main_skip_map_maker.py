@@ -178,8 +178,8 @@ def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, 
     created = {"agent": None}
     real_create = app.create_coordinator_agent
 
-    def fake_create_coordinator_agent(model):  # pragma: no cover - minimal wrapper
-        created["agent"] = real_create(model)
+    def fake_create_coordinator_agent(provider=None, model=None):  # pragma: no cover - minimal wrapper
+        created["agent"] = real_create(provider=provider, model=model)
         return created["agent"]
 
     monkeypatch.setattr(app, "create_coordinator_agent", fake_create_coordinator_agent)

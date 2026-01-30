@@ -100,3 +100,25 @@ Ensured agents can read the generated ToC.json from the configured output direct
 
 ### Next Steps & Continuity
 - Re-run the CLI with a full pre-chat audit to confirm the recommendation about missing ToC.json no longer appears and workers successfully use the table of contents.
+
+## Phase: Config Refactor & Model Factory | 2025-05-15
+Refactored configuration and model instantiation to support per-agent provider selection via CLI flag.
+
+### Tasks Completed
+- [x] Created `sdaa/src/core/model_factory.py` to instantiate `Gemini` or `OpenRouterModel` based on agent-specific config.
+- [x] Updated `sdaa/config/config.yaml` to define model names per provider (openrouter/gemini) for each agent.
+- [x] Refactored `sdaa/src/agents/coordinator.py` and `main.py` to use `model_factory` and accept a `provider` argument instead of a single model instance.
+- [x] Created `tests/test_factory_and_integration.py` to verify the factory logic and integration with `main.py` and coordinator.
+
+### Test Results
+Created `tests/test_factory_and_integration.py` which mocks `config_loader` and verifies that `get_model_for_agent` correctly instantiates `Gemini` or `OpenRouterModel` with the configured model names. Also verifies that `main.py` and `coordinator.py` use the factory for all agents.
+
+Output:
+```
+Ran 6 tests in 0.788s
+
+OK
+```
+
+### Next Steps & Continuity
+- Verify end-to-end execution with different config values.

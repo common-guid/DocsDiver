@@ -17,6 +17,7 @@ from sdaa.src.agents.workers import (
 )
 from sdaa.src.utils.mock_model import MockModel
 from sdaa.src.utils.openrouter_model import OpenRouterModel
+from sdaa.src.core.model_factory import get_model_for_agent
 from google.adk.agents import SequentialAgent
 from google.adk.models import Gemini
 from google.adk.runners import Runner
@@ -24,6 +25,7 @@ from google.genai import types
 from google.adk.sessions import InMemorySessionService
 from google.adk.memory import InMemoryMemoryService
 from sdaa.src.ui.rich_chat import RichUI
+
 def suppress_genai_non_text_warning() -> None:
     """
     Suppress the google-genai warning emitted when .text is accessed on responses
@@ -58,11 +60,17 @@ def get_missing_prechat_outputs() -> list[str]:
     expected_paths = _expected_prechat_output_paths()
     return [path for path in expected_paths if not os.path.exists(path)]
 
-def build_prechat_audit_agent(model) -> SequentialAgent:
-    permissions_agent = create_permissions_agent(model)
-    constraints_agent = create_constraints_agent(model)
-    boundaries_agent = create_boundaries_agent(model)
-    coordinator_synth = create_coordinator_synthesizer(model)
+def build_prechat_audit_agent(provider: str) -> SequentialAgent:
+    perm_model = get_model_for_agent("permissions_agent", provider)
+    const_model = get_model_for_agent("constraints_agent", provider)
+    bound_model = get_model_for_agent("boundaries_agent", provider)
+
+    permissions_agent = create_permissions_agent(model=perm_model)
+    constraints_agent = create_constraints_agent(model=const_model)
+    boundaries_agent = create_boundaries_agent(model=bound_model)
+
+    # create_coordinator_synthesizer now accepts provider
+    coordinator_synth = create_coordinator_synthesizer(provider=provider)
 
     return SequentialAgent(
         name="prechat_audit",
@@ -89,20 +97,6 @@ async def main():
     ui.print_banner("SDAA: Security Documentation Analysis Agent")
     ui.print_status(f"Using provider: {args.model}")
 
-    # Select model
-    if args.model == "gemini":
-        model_name = config_loader.get("providers.gemini.model_name", "gemini-2.5-pro")
-        # Assuming Gemini class takes model name as argument or keyword argument
-        # Based on typical ADK usage and MockModel structure
-        model = Gemini(model=model_name)
-    elif args.model == "openrouter":
-        model_name = config_loader.get("providers.openrouter.model_name", "anthropic/claude-3-opus")
-        base_url = config_loader.get("providers.openrouter.base_url", "https://openrouter.ai/api/v1")
-        model = OpenRouterModel(model_name=model_name, base_url=base_url)
-    else:
-        # Fallback (should not happen due to argparse choices, but good for safety)
-        model = MockModel(model="mock-model")
-
     # 1. Map Maker
     toc_filename = config_loader.get("system.toc_filename", "ToC.json")
     output_dir = config_loader.get_output_dir()
@@ -115,7 +109,9 @@ async def main():
     else:
         ui.print_status("\n[Phase 1] Initializing Map Maker...")
         try:
-            await generate_toc(model=model)
+            # Instantiate model specifically for map_maker
+            map_maker_model = get_model_for_agent("map_maker", args.model)
+            await generate_toc(model=map_maker_model)
             ui.print_status(f"ToC generation complete. Wrote ToC to {toc_path}.")
         except Exception as e:
             ui.print_error(f"generating ToC: {e}")
@@ -126,7 +122,8 @@ async def main():
 
     # 2. Initialize Agent
     ui.print_status("\n[Phase 2] Initializing Coordinator...")
-    coordinator = create_coordinator_agent(model=model)
+    # Pass provider to create_coordinator_agent
+    coordinator = create_coordinator_agent(provider=args.model)
 
     session_service = InMemorySessionService()
     memory_service = InMemoryMemoryService()
@@ -167,7 +164,7 @@ async def main():
         ui.print_status(
             "\n[Phase 2.5] Running Pre-chat Audit (missing outputs detected)..."
         )
-        prechat_agent = build_prechat_audit_agent(model)
+        prechat_agent = build_prechat_audit_agent(provider=args.model)
         prechat_runner = Runner(
             agent=prechat_agent,
             app_name="sdaa",

@@ -8,6 +8,7 @@ from sdaa.src.agents.workers import (
     create_constraints_agent,
     create_boundaries_agent
 )
+from sdaa.src.core.model_factory import get_model_for_agent
 
 SUPERVISOR_PROMPT = """
 # Role
@@ -124,13 +125,18 @@ Your final response must use this structure:
 2. After calling the tool, return the **exact same markdown** content and nothing else.
 """
 
-def create_coordinator_agent(model=None):
+def create_coordinator_agent(provider: str = "openrouter", model=None):
     if model is None:
-        model = MockModel(model="mock-model")
+        model = get_model_for_agent("coordinator", provider)
 
-    permissions_agent = create_permissions_agent(model)
-    constraints_agent = create_constraints_agent(model)
-    boundaries_agent = create_boundaries_agent(model)
+    # Instantiate models for sub-agents based on the selected provider
+    perm_model = get_model_for_agent("permissions_agent", provider)
+    const_model = get_model_for_agent("constraints_agent", provider)
+    bound_model = get_model_for_agent("boundaries_agent", provider)
+
+    permissions_agent = create_permissions_agent(model=perm_model)
+    constraints_agent = create_constraints_agent(model=const_model)
+    boundaries_agent = create_boundaries_agent(model=bound_model)
 
     return LlmAgent(
         name="coordinator_psa",
@@ -140,9 +146,9 @@ def create_coordinator_agent(model=None):
         sub_agents=[permissions_agent, constraints_agent, boundaries_agent]
     )
 
-def create_coordinator_synthesizer(model=None):
+def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
     if model is None:
-        model = MockModel(model="mock-model")
+        model = get_model_for_agent("coordinator", provider)
 
     return LlmAgent(
         name="coordinator_psa",

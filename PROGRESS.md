@@ -122,3 +122,32 @@ OK
 
 ### Next Steps & Continuity
 - Verify end-to-end execution with different config values.
+
+## Phase: Verify Artifact Generation | 2025-05-15
+Verified that all agents write their artifacts to the configured output directories.
+
+### Tasks Completed
+- [x] Created `tests/test_verify_artifacts.py` to explicitly verify requirements.
+- [x] Verified that `Map Maker` writes `ToC.json` to the correct `output_dir`.
+- [x] Verified that worker agents (`Permissions`, `Constraints`, `Boundaries`) write their artifacts to `output_dir/artifacts_dir`.
+- [x] Verified that `Supervisor` writes the final report to `output_dir/reports_dir`.
+
+### Test Results
+Ran `pytest tests/test_verify_artifacts.py` to confirm file writing behavior.
+
+Output:
+```
+============================= test session starts ==============================
+platform linux -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app
+plugins: langsmith-0.6.6, asyncio-1.3.0, anyio-4.12.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 3 items
+
+tests/test_verify_artifacts.py ...                                       [100%]
+
+============================== 3 passed in 3.00s ===============================
+```
+
+### Next Steps & Continuity
+- Close the task.

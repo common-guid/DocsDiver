@@ -14,20 +14,20 @@ providers:
     model_name: "moonshotai/kimi-k2.5"
 
 # Agent-Specific Model Selection
-# Note: These are overridden by the CLI flag -m
+# Note: The CLI flag -m (gemini|openrouter) selects which key to use for each agent.
 agents:
   map_maker:
-    provider: "openrouter"
-    model: "google/gemini-2.0-flash-001"
+    openrouter: "moonshotai/kimi-k2.5"
+    gemini: "gemini-2.0-flash-001"
   coordinator:
-    provider: "openrouter"
-    model: "moonshotai/kimi-k2.5"
+    openrouter: "moonshotai/kimi-k2.5"
+    gemini: "gemini-2.0-flash-001"
   permissions_agent:
-    provider: "openrouter"
-    model: "google/gemini-2.0-flash-001"
+    openrouter: "moonshotai/kimi-k2.5"
+    gemini: "gemini-2.0-flash-001"
   constraints_agent:
-    provider: "openrouter"
-    model: "google/gemini-2.0-flash-001"
+    openrouter: "moonshotai/kimi-k2.5"
+    gemini: "gemini-2.0-flash-001"
   boundaries_agent:
-    provider: "openrouter"
-    model: "google/gemini-2.0-flash-001"
+    openrouter: "moonshotai/kimi-k2.5"
+    gemini: "gemini-2.0-flash-001"

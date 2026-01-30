@@ -45,3 +45,5 @@ Implemented a sequential pre-chat audit pipeline that generates worker artifacts
 Simplified the boundary reporting tool to accept markdown-only input to avoid invalid Gemini tool schemas, and updated tests accordingly.
 ## ToC.json accessibility fix | 2026-01-30
 Updated `sdaa/src/tools/file_ops.py` so `read_file("ToC.json")` reads the table of contents from the configured `system.output_dir`, allowing pre-chat and interactive agents to consume the generated ToC.
+## Per-Agent Model Configuration & Factory | 2025-05-15
+Refactored the configuration system to allow specifying different models for `openrouter` and `gemini` per agent, and implemented a factory pattern to instantiate the correct model based on the selected provider at runtime.

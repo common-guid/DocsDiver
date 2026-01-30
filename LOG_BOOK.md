@@ -47,3 +47,5 @@ Simplified the boundary reporting tool to accept markdown-only input to avoid in
 Updated `sdaa/src/tools/file_ops.py` so `read_file("ToC.json")` reads the table of contents from the configured `system.output_dir`, allowing pre-chat and interactive agents to consume the generated ToC.
 ## Per-Agent Model Configuration & Factory | 2025-05-15
 Refactored the configuration system to allow specifying different models for `openrouter` and `gemini` per agent, and implemented a factory pattern to instantiate the correct model based on the selected provider at runtime.
+## Artifact Generation Verification | 2025-05-15
+Enhanced `MockModel` to support simulated function calls and implemented a full integration test (`tests/test_artifact_generation.py`) to verify that the Map Maker generates `ToC.json` in `output/` and the Pre-chat Audit agents generate their respective artifacts and final report in `output/artifacts/` and `output/reports/`. Confirmed that all files are created as expected.

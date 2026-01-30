@@ -122,3 +122,25 @@ OK
 
 ### Next Steps & Continuity
 - Verify end-to-end execution with different config values.
+
+## Phase: Artifact Generation Verification | 2025-05-15
+Verified and tested the artifact generation workflow for Map Maker and Pre-chat Audit agents.
+
+### Tasks Completed
+- [x] Updated `sdaa/src/utils/mock_model.py` to support simulated function calls for reporting tools, allowing comprehensive testing of the agent workflow.
+- [x] Created `tests/test_artifact_generation.py` to verify that `ToC.json`, worker artifacts, and the final report are correctly generated in the configured output directories.
+- [x] Verified that `ToC.json` is written to `output/ToC.json`.
+- [x] Verified that worker artifacts are written to `output/artifacts/`.
+- [x] Verified that the final report is written to `output/reports/`.
+
+### Test Results
+Created `tests/test_artifact_generation.py` which runs a full integration test of the Map Maker and Pre-chat Audit agents using `MockModel`. The test verifies the existence and content of all expected output files.
+
+Output:
+```
+tests/test_artifact_generation.py .                                      [100%]
+1 passed, 1 warning in 3.89s
+```
+
+### Next Steps & Continuity
+- Submit changes for review.

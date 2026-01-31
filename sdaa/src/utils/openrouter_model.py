@@ -1,5 +1,6 @@
 import os
-from typing import AsyncGenerator, Optional, List
+import json
+from typing import AsyncGenerator, Optional, List, Dict, Any
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
 from openai import AsyncOpenAI
@@ -15,15 +16,64 @@ class OpenRouterModel(BaseLlm):
         )
         super().__init__(model=model_name, client=client)
 
+    def _convert_schema(self, schema: Any) -> Dict[str, Any]:
+        """Convert Google GenAI Schema to JSON Schema."""
+        # Convert enum type to string (e.g. <Type.STRING: 'STRING'> -> 'string')
+        schema_type = str(schema.type).upper()
+        if "STRING" in schema_type: t = "string"
+        elif "INTEGER" in schema_type: t = "integer"
+        elif "NUMBER" in schema_type: t = "number"
+        elif "BOOLEAN" in schema_type: t = "boolean"
+        elif "ARRAY" in schema_type: t = "array"
+        elif "OBJECT" in schema_type: t = "object"
+        else:
+            if schema.properties:
+                t = "object"
+            else:
+                t = "string"
+
+        json_schema = {"type": t}
+        if schema.description:
+            json_schema["description"] = schema.description
+
+        if t == "object" and schema.properties:
+            props = {}
+            for k, v in schema.properties.items():
+                props[k] = self._convert_schema(v)
+            json_schema["properties"] = props
+            if schema.required:
+                json_schema["required"] = schema.required
+
+        # TODO: Handle array items if strictly needed, but internal tools seem flat or simple.
+        
+        return json_schema
+
+    def _convert_tools(self, tools: List[Any]) -> List[Dict[str, Any]]:
+        """Convert Google GenAI Tools to OpenAI Tools format."""
+        openai_tools = []
+        for tool in tools:
+            if hasattr(tool, 'function_declarations'):
+                for func in tool.function_declarations:
+                    openai_tools.append({
+                        "type": "function",
+                        "function": {
+                            "name": func.name,
+                            "description": func.description,
+                            "parameters": self._convert_schema(func.parameters)
+                        }
+                    })
+        return openai_tools
+
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
 
+        # IMPROVED HISTORY HANDLING
+        # Clear the messages list and rebuild it correctly from llm_request.contents
         messages = []
-
-        # System instruction
+        
+        # Add system instruction if present
         if llm_request.config and llm_request.config.system_instruction:
-             # system_instruction is usually a Content object
              sys_text = ""
              if hasattr(llm_request.config.system_instruction, 'parts'):
                  for part in llm_request.config.system_instruction.parts:
@@ -35,48 +85,160 @@ class OpenRouterModel(BaseLlm):
              if sys_text:
                 messages.append({"role": "system", "content": sys_text})
 
-        # User contents
-        # llm_request.contents is expected to be a list of Content objects
-        # We need to serialize this to OpenAI format.
-        # ADK might send multiple Content objects for chat history?
-        # Or just one for the current prompt?
-        # Assuming simple concatenation for now or mapping based on ADK patterns.
-
-        user_content_str = ""
+        # Iterate through contents to build conversation history
         if isinstance(llm_request.contents, list):
             for content in llm_request.contents:
+                role = content.role
+                if role == "model":
+                    role = "assistant"
+                elif role == "tool":
+                    role = "tool"
+                else:
+                    role = "user"
+
+                content_parts = []
+                tool_calls = []
+
                 if hasattr(content, 'parts'):
                     for part in content.parts:
                         if part.text:
-                            user_content_str += part.text
-                else:
-                    user_content_str += str(content)
-        elif hasattr(llm_request.contents, 'parts'):
-             for part in llm_request.contents.parts:
-                if part.text:
-                    user_content_str += part.text
-        else:
-             user_content_str = str(llm_request.contents)
+                            content_parts.append(part.text)
+                        
+                        if hasattr(part, 'function_call') and part.function_call:
+                            # Map FunctionCall to OpenAI tool_calls
+                            # We need a tool_call_id. ADK might not persist it in the FunctionCall object directly 
+                            # if it's just a data class. We might need to generate a deterministic one or see if it's there.
+                            # For OpenRouter/OpenAI, the tool usage flow is Strict: Assistant (tool_call) -> Tool (result).
+                            # If we don't have IDs in history, we might face issues.
+                            # Let's generate a mock ID if missing, but consistency is key.
+                            
+                            fc = part.function_call
+                            # Attempt to use specific ID if available, otherwise generate one
+                            # Note: google.genai types might not have 'id' on FunctionCall.
+                            # We'll check via getattr.
+                            # Fix for ID mismatch: use deterministic ID format matching ADK/generation
+                            tc_id = getattr(fc, 'id', None) or f"functions.{fc.name}:{len(tool_calls)}"
+                            
+                            tool_calls.append({
+                                "id": tc_id,
+                                "type": "function",
+                                "function": {
+                                    "name": fc.name,
+                                    "arguments": json.dumps(fc.args) if fc.args else "{}"
+                                }
+                            })
 
-        if user_content_str:
-             messages.append({"role": "user", "content": user_content_str})
+                        if hasattr(part, 'function_response') and part.function_response:
+                             # Map FunctionResponse to OpenAI tool message
+                             fr = part.function_response
+                             # We need the id of the call this response is for.
+                             # If ADK doesn't store it, we verify if OpenRouter accepts just matching names? 
+                             # No, OpenAI API requires tool_call_id.
+                             # If we generated ID above based on position, we might tricky.
+                             # HOWEVER, in standard ADK flow, the generic runner usually keeps history.
+                             
+                             # Critical: We must find the ID. 
+                             # If we can't find it, we'll generate one and hope for loose validation or 
+                             # that we can infer it. 
+                             # For now, let's use the 'id' field if it exists.
+                             tc_id = getattr(fr, 'id', None) 
+                             
+                             # Fallback: if we just saw a tool call in the previous message, grab its ID?
+                             # This implementation iterates sequentially.
+                             
+                             if not tc_id:
+                                 # Try to find the last assistant message with a tool call for this function
+                                 # This is a heuristic.
+                                 for msg in reversed(messages):
+                                     if msg.get("role") == "assistant" and "tool_calls" in msg:
+                                         for tc in msg["tool_calls"]:
+                                             if tc["function"]["name"] == fr.name:
+                                                 tc_id = tc["id"]
+                                                 break
+                                     if tc_id: break
+                             
+                             if not tc_id:
+                                 tc_id = f"call_unknown_{fr.name}"
+
+                             messages.append({
+                                 "role": "tool",
+                                 "tool_call_id": tc_id,
+                                 "content": json.dumps(fr.response) if fr.response else ""
+                             })
+
+                # Construct message
+                if role == "assistant":
+                    msg = {"role": "assistant"}
+                    if content_parts:
+                        msg["content"] = "".join(content_parts)
+                    if tool_calls:
+                        msg["tool_calls"] = tool_calls
+                        # Ensure content is null if only tool calls (optional in some APIs, but safer)
+                        if "content" not in msg:
+                            msg["content"] = None 
+                    messages.append(msg)
+                
+                elif role == "user":
+                    if content_parts:
+                        messages.append({"role": "user", "content": "".join(content_parts)})
+        
+        # Process Tools
+        openai_tools = None
+        if llm_request.config and hasattr(llm_request.config, 'tools') and llm_request.config.tools:
+            openai_tools = self._convert_tools(llm_request.config.tools)
 
         try:
+            # Note: stream=False simplifies tool handling. 
+            should_stream = stream
+            if openai_tools:
+                should_stream = False
+            
+            from openai import NOT_GIVEN
+
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                stream=stream
+                stream=should_stream,
+                tools=openai_tools if openai_tools else NOT_GIVEN
             )
 
-            if stream:
+            if should_stream:
                 async for chunk in response:
                     content_text = chunk.choices[0].delta.content or ""
                     if content_text:
                         content = types.Content(parts=[types.Part.from_text(text=content_text)])
                         yield LlmResponse(content=content)
             else:
-                content_text = response.choices[0].message.content or ""
-                content = types.Content(parts=[types.Part.from_text(text=content_text)])
+                message = response.choices[0].message
+                parts = []
+                
+                # Handle Tool Calls
+                if message.tool_calls:
+                    for i, tool_call in enumerate(message.tool_calls):
+                        # Force ADK-compliant ID format: functions.{name}:{index}
+                        # This appears to be what the ADK runner expects or generates for responses.
+                        func_name = tool_call.function.name
+                        tc_id = f"functions.{func_name}:{i}"
+                        func_args = json.loads(tool_call.function.arguments)
+                        parts.append(
+                            types.Part(
+                                function_call=types.FunctionCall(
+                                    name=func_name,
+                                    args=func_args,
+                                    id=tc_id
+                                )
+                            )
+                        )
+                
+                # Handle Text
+                if message.content:
+                    parts.append(types.Part.from_text(text=message.content))
+                
+                if not parts:
+                    # Empty response?
+                    parts.append(types.Part.from_text(text=""))
+
+                content = types.Content(parts=parts, role="model")
                 yield LlmResponse(content=content)
 
         except Exception as e:

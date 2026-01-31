@@ -27,7 +27,8 @@ Implemented configurable output routing for Map Maker and reporting, plus new CL
 - [x] Extended `main.py` CLI with `--skip-map-maker` and `--toc-only` flags and wired Phase 1 to respect existing ToC files and the new skip behavior.
 - [x] Updated `tests/test_map_maker.py` so it uses the resolved output directory and cleans up any pre-existing `ToC.json` before running, keeping coverage for summary and tag structure.
 - [x] Updated `README.md` configuration and data-flow documentation to describe `system.output_dir` and where outputs are written.
--### Next Steps & Continuity
+
+### Next Steps & Continuity
 - Exercise the CLI end-to-end with a non-default `system.output_dir` (for example, `./artifacts`) to confirm all outputs route correctly.
 
 ## Phase: Documentation Update (Output Dir & Skip ToC) | 2026-01-25
@@ -122,3 +123,48 @@ OK
 
 ### Next Steps & Continuity
 - Verify end-to-end execution with different config values.
+
+## Phase: OpenRouter Tool Support Implementation | 2026-01-30
+Resolved the issue where agents running on OpenRouter were unable to call tools, preventing artifact generation.
+
+### Tasks Completed
+- [x] Diagnosed that `OpenRouterModel` lacked tool conversion and handling logic.
+- [x] Implemented `_convert_tools` and `_convert_schema` in `sdaa/src/utils/openrouter_model.py` to map Google GenAI tools to OpenAI format.
+- [x] Updated `generate_content_async` in `sdaa/src/utils/openrouter_model.py` to pass tools to the API and parse tool calls from the response.
+- [x] Updated `sdaa/src/utils/mock_model.py` to support debugging tool structures.
+- [x] Verified the fix using mock simulation and debugging logs.
+
+### Next Steps & Continuity
+- Run a full audit with `python main.py -m openrouter` to confirm all artifacts (permissions, constraints, boundaries, and final report) are correctly generated in the `output` directory. [x] (Verified via logs showing successful multi-turn tool execution)
+
+## Phase: Gemini Role Error Fix | 2026-01-31
+Resolved `400 INVALID_ARGUMENT` error when running map maker with Gemini by adding explicit role assignment.
+
+### Tasks Completed
+- [x] Updating `sdaa/src/core/map_maker.py` to add `role="user"` to the `LlmRequest` content construction.
+- [x] Verified fix by generating ToC with Gemini without errors.
+- [x] Verified no regression for OpenRouter execution.
+
+### Next Steps & Continuity
+- Proceed with full audit test using Gemini to ensure other agents function correctly.
+
+## Phase: Path Access Error Fix | 2026-01-31
+Resolved `Access denied` errors where agents attempted to follow broken relative links in documentation.
+
+### Tasks Completed
+- [x] Identified that `workspace-settings.md` contained links to files outside the documentation root (e.g., `../administration/workspace_settings/overview.md`).
+- [x] Updated `sdaa/src/agents/workers.py` to strictly instruct `permissions`, `constraints`, and `boundaries` agents via system prompts to **only** access files explicitly listed in `ToC.json` and ignore other paths.
+- [x] Verified fix by running pre-chat audit; agents successfully ignored valid-looking but out-of-bounds links.
+
+### Next Steps & Continuity
+- Monitor for any other hallucinated paths or valid relative links that *should* be followed but aren't (though ToC-only approach is safer).
+
+## Phase: End-to-End Gemini Validation | 2026-01-31
+Completed full end-to-end validation of the audit pipeline using the Gemini provider.
+
+### Tasks Completed
+- [x] Successfully ran end-to-end tests (excluding interactive chat) with `python main.py -m gemini`.
+- [x] Verified that all agent artifacts and the final `Security_Threat_Model.md` report are generated correctly and stored in the `output/reports` directory (run5 in ../test-runs directory).
+
+### Next Steps & Continuity
+- **Prompt Improvement**: Refine agent system instructions to increase the depth of analysis and improve report formatting.

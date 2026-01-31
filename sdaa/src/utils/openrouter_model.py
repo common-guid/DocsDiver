@@ -26,7 +26,11 @@ class OpenRouterModel(BaseLlm):
         elif "BOOLEAN" in schema_type: t = "boolean"
         elif "ARRAY" in schema_type: t = "array"
         elif "OBJECT" in schema_type: t = "object"
-        else: t = "string"
+        else:
+            if schema.properties:
+                t = "object"
+            else:
+                t = "string"
 
         json_schema = {"type": t}
         if schema.description:
@@ -63,24 +67,6 @@ class OpenRouterModel(BaseLlm):
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
-
-        messages = []
-
-        messages = []
-
-        # System instruction
-        if llm_request.config and llm_request.config.system_instruction:
-             # system_instruction is usually a Content object
-             sys_text = ""
-             if hasattr(llm_request.config.system_instruction, 'parts'):
-                 for part in llm_request.config.system_instruction.parts:
-                     if part.text:
-                         sys_text += part.text
-             else:
-                 sys_text = str(llm_request.config.system_instruction)
-
-             if sys_text:
-                messages.append({"role": "system", "content": sys_text})
 
         # IMPROVED HISTORY HANDLING
         # Clear the messages list and rebuild it correctly from llm_request.contents
@@ -130,7 +116,8 @@ class OpenRouterModel(BaseLlm):
                             # Attempt to use specific ID if available, otherwise generate one
                             # Note: google.genai types might not have 'id' on FunctionCall.
                             # We'll check via getattr.
-                            tc_id = getattr(fc, 'id', None) or f"call_{len(messages)}_{len(tool_calls)}"
+                            # Fix for ID mismatch: use deterministic ID format matching ADK/generation
+                            tc_id = getattr(fc, 'id', None) or f"functions.{fc.name}:{len(tool_calls)}"
                             
                             tool_calls.append({
                                 "id": tc_id,

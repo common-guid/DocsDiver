@@ -101,7 +101,7 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
     # Create request
     request = LlmRequest(
         model=model_name,
-        contents=[types.Content(parts=[types.Part.from_text(text=prompt)])]
+        contents=[types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
     )
 
     response_text = ""

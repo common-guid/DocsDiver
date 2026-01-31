@@ -44,12 +44,16 @@ Implemented a sequential pre-chat audit pipeline that generates worker artifacts
 ## Boundary reporting schema fix | 2026-01-28
 Simplified the boundary reporting tool to accept markdown-only input to avoid invalid Gemini tool schemas, and updated tests accordingly.
 ## ToC.json accessibility fix | 2026-01-30
-Updated `sdaa/src/tools/file_ops.py` so `read_file("ToC.json")` reads the table of contents from the configured `system.output_dir`, allowing pre-chat and interactive agents to consume the generated ToC.
+Updated `sdaa/src/tools/file_ops.py` so `read_file("ToC.json")` reads the table of contents from the configured `system.output_dir`, allowing pre-chat and interactive audits to consume the generated ToC.
 ## Per-Agent Model Configuration & Factory | 2025-05-15
 Refactored the configuration system to allow specifying different models for `openrouter` and `gemini` per agent, and implemented a factory pattern to instantiate the correct model based on the selected provider at runtime.
 ## OpenRouter Tooling Fixes | 2026-01-30
 - Implemented tool support for OpenRouter in `sdaa/src/utils/openrouter_model.py`.
-- Fixed `No function call event found` error in OpenRouter integration.
-    - Diagnosed that ADK Runner requires strict adherence to `role="model"` for response content to register function calls.
-    - Identified that ADK Runner likely expects/generates tool IDs in `functions.{name}:{index}` format.
-    - Updated `OpenRouterModel` to set `role="model"` and generate compliant tool IDs, enabling successful tool execution and history validation.
+- Fixed `No function call event found` error in OpenRouter integration via `role="model"` enforcement.
+## Gemini Role Fix for Map Maker | 2026-01-31
+- Fixed `400 INVALID_ARGUMENT` error in `map_maker.py` by adding explicit `role="user"` to `LlmRequest`.
+- Verified fix enables successful ToC generation with Gemini while maintaining OpenRouter compatibility.
+## Path Access Error Fix | 2026-01-31
+- Identified `Access denied` error caused by agents following relative links to files outside the documentation root in `workspace-settings.md`.
+- Updated `sdaa/src/agents/workers.py` to strictly instruct agents in the system prompt to **only** access files explicitly listed in `ToC.json`.
+- Verified the fix by running the pre-chat audit; agents successfully ignored valid-looking but out-of-bounds relative links.

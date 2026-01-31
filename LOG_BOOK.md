@@ -47,3 +47,9 @@ Simplified the boundary reporting tool to accept markdown-only input to avoid in
 Updated `sdaa/src/tools/file_ops.py` so `read_file("ToC.json")` reads the table of contents from the configured `system.output_dir`, allowing pre-chat and interactive agents to consume the generated ToC.
 ## Per-Agent Model Configuration & Factory | 2025-05-15
 Refactored the configuration system to allow specifying different models for `openrouter` and `gemini` per agent, and implemented a factory pattern to instantiate the correct model based on the selected provider at runtime.
+## OpenRouter Tooling Fixes | 2026-01-30
+- Implemented tool support for OpenRouter in `sdaa/src/utils/openrouter_model.py`.
+- Fixed `No function call event found` error in OpenRouter integration.
+    - Diagnosed that ADK Runner requires strict adherence to `role="model"` for response content to register function calls.
+    - Identified that ADK Runner likely expects/generates tool IDs in `functions.{name}:{index}` format.
+    - Updated `OpenRouterModel` to set `role="model"` and generate compliant tool IDs, enabling successful tool execution and history validation.

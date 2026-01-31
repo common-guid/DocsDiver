@@ -122,3 +122,16 @@ OK
 
 ### Next Steps & Continuity
 - Verify end-to-end execution with different config values.
+
+## Phase: OpenRouter Tool Support Implementation | 2026-01-30
+Resolved the issue where agents running on OpenRouter were unable to call tools, preventing artifact generation.
+
+### Tasks Completed
+- [x] Diagnosed that `OpenRouterModel` lacked tool conversion and handling logic.
+- [x] Implemented `_convert_tools` and `_convert_schema` in `sdaa/src/utils/openrouter_model.py` to map Google GenAI tools to OpenAI format.
+- [x] Updated `generate_content_async` in `sdaa/src/utils/openrouter_model.py` to pass tools to the API and parse tool calls from the response.
+- [x] Updated `sdaa/src/utils/mock_model.py` to support debugging tool structures.
+- [x] Verified the fix using mock simulation and debugging logs.
+
+### Next Steps & Continuity
+- Run a full audit with `python main.py -m openrouter` to confirm all artifacts (permissions, constraints, boundaries, and final report) are correctly generated in the `output` directory. [x] (Verified via logs showing successful multi-turn tool execution)

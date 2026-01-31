@@ -12,6 +12,11 @@ class MockModel(BaseLlm):
         contents_text = str(llm_request.contents).lower()
         system_text = str(llm_request.config.system_instruction).lower() if llm_request.config and llm_request.config.system_instruction else ""
         full_text = contents_text + system_text
+        
+        # Debug: Print tool structure to understand what LlmAgent passes
+        if llm_request.config and hasattr(llm_request.config, 'tools'):
+            print(f"DEBUG: Tools in config: {llm_request.config.tools}")
+
 
         # Check if the last part of the last content is a FunctionResponse
         # If so, we have already called the tool, so now we should return the final text (step 6).
@@ -28,12 +33,9 @@ class MockModel(BaseLlm):
         tool_call_part = None
 
         # Simple heuristic to determine response based on prompt content
-        if "architectural summary" in full_text and not last_was_function_response:
-             # Map Maker - usually just text? The prompt doesn't mandate a tool call for map maker (ToC generation).
-             # It returns JSON text.
-             response_text = '{"summary": "This is a mock summary of the architectural component."}'
-
-        elif "principal security architect" in full_text:
+        
+        # Check for specific agent roles FIRST to avoid false positives
+        if "principal security architect" in full_text:
              report_content = """
 # Master Audit Report
 
@@ -68,6 +70,7 @@ Standard 3-tier web app with public login and internal database.
                  response_text = report_content
 
         elif ("role based access controls" in full_text or "permissions analyst" in full_text):
+             # Permissions Agent
              findings = """
 # RBAC Analysis
 ## 1. Analysis Summary
@@ -93,6 +96,7 @@ Analyzed files: auth.md
                  response_text = findings
 
         elif ("business logic" in full_text or "negative constraints" in full_text):
+             # Constraints Agent
              findings = """
 # Logic Analysis
 ## 1. Analysis Summary
@@ -113,6 +117,7 @@ Analyzed files: billing.md
                  response_text = findings
 
         elif ("security boundary" in full_text or "data flow component" in full_text):
+             # Boundaries Agent
              boundaries_markdown = """
 {
   "boundaries": [
@@ -136,6 +141,11 @@ Analyzed files: billing.md
                  )
              else:
                  response_text = boundaries_markdown
+
+        elif "architectural summary" in full_text and not last_was_function_response:
+             # Map Maker - checking this LAST because other prompts might contain this phrase
+             # It acts as a fallback or specific check if no other role matched
+             response_text = '{"summary": "This is a mock summary of the architectural component."}'
 
         # Wrap response in types.Content
         if tool_call_part:

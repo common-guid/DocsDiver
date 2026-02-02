@@ -215,7 +215,9 @@ async def main():
             )
             ui.print_status("Pre-chat audit complete.")
         except Exception as e:
-            ui.print_error(f"\nduring pre-chat audit: {e}")
+            import traceback
+            traceback.print_exc()
+            ui.print_error(f"\n{e}")
     else:
         ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (outputs present).")
 

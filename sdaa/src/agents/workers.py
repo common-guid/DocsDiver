@@ -1,4 +1,5 @@
 from google.adk.agents import LlmAgent
+import re
 from sdaa.src.utils.mock_model import MockModel
 from sdaa.src.tools.file_ops import read_file, list_files
 from sdaa.src.tools.reporting import (
@@ -31,6 +32,9 @@ def create_permissions_agent(model=None):
     if not prompt:
         # Fallback if fetch fails or no key
         prompt = "Error: Could not fetch 'permissions-agent' prompt from Langfuse."
+    
+    # Sanitize identifiers in braces to prevent ADK from treating them as variables
+    prompt = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", prompt)
 
     return LlmAgent(
         name="permissions_agent",
@@ -56,6 +60,9 @@ def create_constraints_agent(model=None):
     if not prompt:
         prompt = "Error: Could not fetch 'negative-constraints-agent' prompt from Langfuse."
 
+    # Sanitize identifiers in braces to prevent ADK from treating them as variables
+    prompt = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", prompt)
+
     return LlmAgent(
         name="constraints_agent",
         instruction=prompt,
@@ -79,6 +86,9 @@ def create_boundaries_agent(model=None):
     
     if not prompt:
         prompt = "Error: Could not fetch 'security-boundaries-agent' prompt from Langfuse."
+
+    # Escape braces to prevent ADK from treating them as variables
+    prompt = prompt.replace("{", "{{").replace("}", "}}")
 
     return LlmAgent(
         name="boundaries_agent",

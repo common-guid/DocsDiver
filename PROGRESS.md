@@ -195,3 +195,14 @@ Optimized pre-chat audit to skip redundant work and reuse existing artifacts.
 ### Next Steps & Continuity
 - Ensure developers use `--coordinator-only` when iterating on the synthesizer prompt without re-running workers.
 
+
+## Phase: Skip Workers & Prompt Sanitization Fix | 2026-02-01
+Resolved crashing bugs when skipping workers and using Langfuse prompts containing curly braces.
+
+### Tasks Completed
+- [x] Updated `ArtifactLoaderModel` to correctly simulate tool calls (FunctionCall -> FunctionResponse) instead of returning plain text, ensuring agent history consistency.
+- [x] Implemented regex-based prompt sanitization in `sdaa/src/agents/workers.py` and `coordinator.py` to escape `{identifier}` sequences as `(identifier)`, preventing the ADK template engine from crashing on unsupplied variables like `{id}`.
+- [x] Verified fixes by running pre-chat audit with existing artifacts; confirmed successful generation of boundaries report and final threat model without errors.
+
+### Next Steps & Continuity
+- Monitor for other template-related crashes if new prompts introduce complex variable-like syntax.

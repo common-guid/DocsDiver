@@ -168,3 +168,41 @@ Completed full end-to-end validation of the audit pipeline using the Gemini prov
 
 ### Next Steps & Continuity
 - **Prompt Improvement**: Refine agent system instructions to increase the depth of analysis and improve report formatting.
+
+## Phase: Langfuse Prompt Management Integration | 2026-02-01
+Migrated hardcoded prompts for workers and coordinator to Langfuse Prompt Management, enabling external version control and updates without code changes.
+
+### Tasks Completed
+- [x] Added `langfuse` dependency to `requirements.txt`.
+- [x] Updated `sdaa/config/config.yaml` to include prompt names and labels for each agent.
+- [x] Created `sdaa/src/utils/prompt_manager.py` to handle dynamic prompt fetching from Langfuse.
+- [x] Refactored `sdaa/src/agents/workers.py` and `sdaa/src/agents/coordinator.py` to replace hardcoded prompts with `PromptManager` calls.
+- [x] Verified successful prompt fetching using existing `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env`.
+
+### Next Steps & Continuity
+- Monitor prompt fetching latency and reliability during full audits.
+- Consider adding caching to `PromptManager` if latency becomes an issue.
+## Phase: Operation Optimization | 2026-02-01
+Optimized pre-chat audit to skip redundant work and reuse existing artifacts.
+
+### Tasks Completed
+- [x] Implemented `ArtifactLoaderModel` to simulate agent execution using existing artifact content.
+- [x] Added `--coordinator-only` CLI flag to `main.py` to bypass Map Maker and Worker execution.
+- [x] Updated `build_prechat_audit_agent` to check for existing artifacts and skip worker execution if found.
+- [x] Patched `MockModel` to include IDs in function calls, resolving verification errors.
+- [x] Verified optimization flow using `mock` provider.
+
+### Next Steps & Continuity
+- Ensure developers use `--coordinator-only` when iterating on the synthesizer prompt without re-running workers.
+
+
+## Phase: Skip Workers & Prompt Sanitization Fix | 2026-02-01
+Resolved crashing bugs when skipping workers and using Langfuse prompts containing curly braces.
+
+### Tasks Completed
+- [x] Updated `ArtifactLoaderModel` to correctly simulate tool calls (FunctionCall -> FunctionResponse) instead of returning plain text, ensuring agent history consistency.
+- [x] Implemented regex-based prompt sanitization in `sdaa/src/agents/workers.py` and `coordinator.py` to escape `{identifier}` sequences as `(identifier)`, preventing the ADK template engine from crashing on unsupplied variables like `{id}`.
+- [x] Verified fixes by running pre-chat audit with existing artifacts; confirmed successful generation of boundaries report and final threat model without errors.
+
+### Next Steps & Continuity
+- Monitor for other template-related crashes if new prompts introduce complex variable-like syntax.

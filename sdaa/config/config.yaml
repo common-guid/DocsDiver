@@ -22,12 +22,24 @@ agents:
   coordinator:
     openrouter: "x-ai/grok-4.1-fast"
     gemini: "gemini-2.5-pro"
+    prompt:
+      name: "coordinator-agent"
+      label: "production"
   permissions_agent:
     openrouter: "x-ai/grok-4.1-fast"
     gemini: "gemini-2.5-flash"
+    prompt:
+      name: "permissions-agent"
+      label: "production"
   constraints_agent:
     openrouter: "x-ai/grok-4.1-fast"
     gemini: "gemini-2.5-flash"
+    prompt:
+      name: "negative-constraints-agent"
+      label: "production"
   boundaries_agent:
     openrouter: "x-ai/grok-4.1-fast"
     gemini: "gemini-2.5-flash"
+    prompt:
+      name: "security-boundaries-agent"
+      label: "production"

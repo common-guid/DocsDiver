@@ -25,6 +25,7 @@ from google.genai import types
 from google.adk.sessions import InMemorySessionService
 from google.adk.memory import InMemoryMemoryService
 from sdaa.src.ui.rich_chat import RichUI
+from sdaa.src.utils.artifact_loader_model import ArtifactLoaderModel
 
 def suppress_genai_non_text_warning() -> None:
     """
@@ -60,10 +61,41 @@ def get_missing_prechat_outputs() -> list[str]:
     expected_paths = _expected_prechat_output_paths()
     return [path for path in expected_paths if not os.path.exists(path)]
 
-def build_prechat_audit_agent(provider: str) -> SequentialAgent:
-    perm_model = get_model_for_agent("permissions_agent", provider)
-    const_model = get_model_for_agent("constraints_agent", provider)
-    bound_model = get_model_for_agent("boundaries_agent", provider)
+def build_prechat_audit_agent(provider: str, coordinator_only: bool = False) -> SequentialAgent:
+    artifacts_dir = config_loader.get_artifacts_dir()
+    
+    # helper to decide model for a worker
+    def get_worker_model(agent_name: str, artifact_name: str, tool_name: str, tool_arg: str):
+        artifact_path = os.path.join(artifacts_dir, artifact_name)
+        
+        # If artifact exists, use it (Optimization Goal 1)
+        if os.path.exists(artifact_path):
+            print(f"DEBUG: Found existing artifact for {agent_name}, skipping execution.")
+            with open(artifact_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return ArtifactLoaderModel(content=content, tool_name=tool_name, tool_arg_name=tool_arg)
+            
+        # If coordinator only and artifact missing, skip with dummy (Goal 2)
+        if coordinator_only:
+            print(f"DEBUG: Coordinator-only mode: Skipping {agent_name} (artifact missing).")
+            return ArtifactLoaderModel(
+                content=f"SKIPPED: {agent_name} was skipped because --coordinator-only was specified and no artifact was found.",
+                tool_name=tool_name, 
+                tool_arg_name=tool_arg
+            )
+            
+        # Otherwise use real model
+        return get_model_for_agent(agent_name, provider)
+
+    perm_model = get_worker_model(
+        "permissions_agent", "permissions_agent.md", "report_permissions_matrix", "findings"
+    )
+    const_model = get_worker_model(
+        "constraints_agent", "constraints_agent.md", "report_invariance_findings", "findings"
+    )
+    bound_model = get_worker_model(
+        "boundaries_agent", "boundaries_agent.md", "report_boundary_analysis", "boundaries_markdown"
+    )
 
     permissions_agent = create_permissions_agent(model=perm_model)
     constraints_agent = create_constraints_agent(model=const_model)
@@ -87,6 +119,7 @@ async def main():
     parser.add_argument("-m", "--model", choices=["gemini", "openrouter", "mock"], default="openrouter", help="Model provider to use")
     parser.add_argument("--skip-map-maker", action="store_true", help="Skip Map Maker and use an existing ToC.json if present")
     parser.add_argument("--toc-only", action="store_true", help="Run Map Maker only and exit before starting the coordinator")
+    parser.add_argument("--coordinator-only", action="store_true", help="Run only the coordinator using existing artifacts, bypassing workers and Map Maker")
     parser.add_argument("--no-rich", action="store_true", help="Disable Rich terminal UI and use plain text output")
     args = parser.parse_args()
 
@@ -102,7 +135,7 @@ async def main():
     output_dir = config_loader.get_output_dir()
     toc_path = os.path.join(output_dir, toc_filename)
 
-    if args.skip_map_maker:
+    if args.skip_map_maker or args.coordinator_only:
         ui.print_status(f"\n[Phase 1] Skipping Map Maker due to --skip-map-maker flag. Expecting existing ToC at {toc_path}.")
     elif os.path.exists(toc_path):
         ui.print_status(f"\n[Phase 1] Skipping Map Maker because existing ToC was found at {toc_path}.")
@@ -160,11 +193,11 @@ async def main():
     config_loader.get_reports_dir()
     config_loader.get_artifacts_dir()
     missing_outputs = get_missing_prechat_outputs()
-    if missing_outputs:
+    if missing_outputs or args.coordinator_only:
         ui.print_status(
-            "\n[Phase 2.5] Running Pre-chat Audit (missing outputs detected)..."
+            "\n[Phase 2.5] Running Pre-chat Audit..."
         )
-        prechat_agent = build_prechat_audit_agent(provider=args.model)
+        prechat_agent = build_prechat_audit_agent(provider=args.model, coordinator_only=args.coordinator_only)
         prechat_runner = Runner(
             agent=prechat_agent,
             app_name="sdaa",
@@ -182,7 +215,9 @@ async def main():
             )
             ui.print_status("Pre-chat audit complete.")
         except Exception as e:
-            ui.print_error(f"\nduring pre-chat audit: {e}")
+            import traceback
+            traceback.print_exc()
+            ui.print_error(f"\n{e}")
     else:
         ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (outputs present).")
 

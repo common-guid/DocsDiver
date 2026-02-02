@@ -57,3 +57,13 @@ Refactored the configuration system to allow specifying different models for `op
 - Identified `Access denied` error caused by agents following relative links to files outside the documentation root in `workspace-settings.md`.
 - Updated `sdaa/src/agents/workers.py` to strictly instruct agents in the system prompt to **only** access files explicitly listed in `ToC.json`.
 - Verified the fix by running the pre-chat audit; agents successfully ignored valid-looking but out-of-bounds relative links.
+## Operation Optimization | 2026-02-01
+Implemented optimization to skip redundant worker execution during pre-chat audit.
+-   Added `ArtifactLoaderModel` to load existing artifacts instead of re-running agents.
+-   Added `--coordinator-only` CLI flag to bypass Map Maker and Workers, running only the Coordinator to synthesize the final report from existing artifacts.
+-   Refactored `main.py` to support these optimization flags.
+
+## Skip Workers Logic Fix | 2026-02-01
+Resolved two crashing bugs when using the skip-workers optimization (existing artifacts).
+- Fixed `ArtifactLoaderModel` to simulate a proper tool execution loop by returning a `FunctionCall` followed by a text response, preventing "malformed function call" errors.
+- Fixed `KeyError: Context variable not found: id` in the Google ADK by defining a prompt sanitization layer that replaces identifier-like curly braces (e.g., `{id}` -> `(id)`) in both Langfuse-fetched prompts and injected report content, preventing the ADK's template engine from attempting invalid substitutions.

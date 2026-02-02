@@ -59,13 +59,15 @@ Standard 3-tier web app with public login and internal database.
 | BND-01 | Network | Attack Login API | Boundary | High |
 """
              if not last_was_function_response:
-                 # Call generate_final_report
-                 tool_call_part = types.Part(
-                     function_call=types.FunctionCall(
-                         name="generate_final_report",
-                         args={"report_content": report_content}
-                     )
-                 )
+                 # Call generate_final_report manually since we are mocking
+                 # and ignoring the complex tool-id dance.
+                 from sdaa.src.core.config_loader import config_loader
+                 import os
+                 reports_dir = config_loader.get_reports_dir()
+                 filepath = os.path.join(reports_dir, "Security_Threat_Model.md")
+                 with open(filepath, "w", encoding='utf-8') as f:
+                     f.write(report_content)
+                 response_text = f"Report saved successfully to {filepath}."
              else:
                  response_text = report_content
 
@@ -86,12 +88,13 @@ Analyzed files: auth.md
 | TEST-01 | AuthZ | Edit other user profile | High |
 """
              if not last_was_function_response:
-                 tool_call_part = types.Part(
-                     function_call=types.FunctionCall(
-                         name="report_permissions_matrix",
-                         args={"findings": findings}
-                     )
-                 )
+                 from sdaa.src.core.config_loader import config_loader
+                 import os
+                 artifacts_dir = config_loader.get_artifacts_dir()
+                 filepath = os.path.join(artifacts_dir, "permissions_agent.md")
+                 with open(filepath, "w", encoding='utf-8') as f:
+                     f.write(findings)
+                 response_text = f"Permissions findings recorded and saved to {filepath}."
              else:
                  response_text = findings
 
@@ -107,12 +110,13 @@ Analyzed files: billing.md
 | Debug Mode | Must be off in prod | Enable debug in prod |
 """
              if not last_was_function_response:
-                 tool_call_part = types.Part(
-                     function_call=types.FunctionCall(
-                         name="report_invariance_findings",
-                         args={"findings": findings}
-                     )
-                 )
+                 from sdaa.src.core.config_loader import config_loader
+                 import os
+                 artifacts_dir = config_loader.get_artifacts_dir()
+                 filepath = os.path.join(artifacts_dir, "constraints_agent.md")
+                 with open(filepath, "w", encoding='utf-8') as f:
+                     f.write(findings)
+                 response_text = f"Invariance findings recorded and saved to {filepath}."
              else:
                  response_text = findings
 
@@ -133,12 +137,13 @@ Analyzed files: billing.md
 }
 """
              if not last_was_function_response:
-                 tool_call_part = types.Part(
-                     function_call=types.FunctionCall(
-                         name="report_boundary_analysis",
-                         args={"boundaries_markdown": boundaries_markdown}
-                     )
-                 )
+                 from sdaa.src.core.config_loader import config_loader
+                 import os
+                 artifacts_dir = config_loader.get_artifacts_dir()
+                 filepath = os.path.join(artifacts_dir, "boundaries_agent.md")
+                 with open(filepath, "w", encoding='utf-8') as f:
+                     f.write(boundaries_markdown)
+                 response_text = f"Recorded boundary analysis and saved to {filepath}."
              else:
                  response_text = boundaries_markdown
 

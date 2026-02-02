@@ -62,3 +62,8 @@ Implemented optimization to skip redundant worker execution during pre-chat audi
 -   Added `ArtifactLoaderModel` to load existing artifacts instead of re-running agents.
 -   Added `--coordinator-only` CLI flag to bypass Map Maker and Workers, running only the Coordinator to synthesize the final report from existing artifacts.
 -   Refactored `main.py` to support these optimization flags.
+
+## Skip Workers Logic Fix | 2026-02-01
+Resolved two crashing bugs when using the skip-workers optimization (existing artifacts).
+- Fixed `ArtifactLoaderModel` to simulate a proper tool execution loop by returning a `FunctionCall` followed by a text response, preventing "malformed function call" errors.
+- Fixed `KeyError: Context variable not found: id` in the Google ADK by defining a prompt sanitization layer that replaces identifier-like curly braces (e.g., `{id}` -> `(id)`) in both Langfuse-fetched prompts and injected report content, preventing the ADK's template engine from attempting invalid substitutions.

@@ -1,4 +1,5 @@
 from google.adk.agents import LlmAgent
+import re
 from google.adk.agents.readonly_context import ReadonlyContext
 from sdaa.src.utils.mock_model import MockModel
 from sdaa.src.tools.file_ops import read_file
@@ -16,9 +17,9 @@ from sdaa.src.core.config_loader import config_loader
 # SUPERVISOR_PROMPT is now managed via Langfuse (coordinator-agent)
 
 def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
-    permissions_report = (ctx.state.get("permissions_report") or "").strip()
-    constraints_report = (ctx.state.get("constraints_report") or "").strip()
-    boundaries_report = (ctx.state.get("boundaries_report") or "").strip()
+    permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("permissions_report") or "").strip())
+    constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("constraints_report") or "").strip())
+    boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("boundaries_report") or "").strip())
 
     if not permissions_report:
         permissions_report = "MISSING: permissions_report"
@@ -90,6 +91,9 @@ def create_coordinator_agent(provider: str = "openrouter", model=None):
     
     if not prompt:
         prompt = "Error: Could not fetch 'coordinator-agent' prompt from Langfuse."
+
+    # Sanitize identifiers in braces in the fetched prompt
+    prompt = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", prompt)
 
     return LlmAgent(
         name="coordinator_psa",

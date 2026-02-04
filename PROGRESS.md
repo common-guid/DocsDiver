@@ -206,3 +206,15 @@ Resolved crashing bugs when skipping workers and using Langfuse prompts containi
 
 ### Next Steps & Continuity
 - Monitor for other template-related crashes if new prompts introduce complex variable-like syntax.
+
+## Phase: OpenRouter Reasoning Support | 2026-02-01
+Implemented support for `x-ai/grok-4.1-fast` reasoning capabilities on OpenRouter.
+
+### Tasks Completed
+- [x] Updated `OpenRouterModel` to inject `extra_body={"reasoning": {"enabled": True}}` when using `grok-4.1-fast`.
+- [x] Implemented mechanism to capture `reasoning_details` from API responses and persist them in `LlmResponse` using `inline_data`.
+- [x] Implemented reconstruction logic to pass `reasoning_details` back to the API in subsequent requests, ensuring context preservation.
+- [x] Created `tests/test_openrouter_reasoning.py` to verify the feature end-to-end.
+
+### Next Steps & Continuity
+- Verify with real Grok model if available.

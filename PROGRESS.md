@@ -206,3 +206,15 @@ Resolved crashing bugs when skipping workers and using Langfuse prompts containi
 
 ### Next Steps & Continuity
 - Monitor for other template-related crashes if new prompts introduce complex variable-like syntax.
+
+## Phase: Context Management & Scalability Strategy | 2026-02-01
+Implementing a "Notebook Strategy" to handle context overflow in worker agents by allowing them to offload findings to a persistent notebook and reset their short-term memory.
+
+### Tasks Completed
+- [ ] Created `sdaa/src/tools/context_ops.py` with `ContextManager`, `reset_context`, `append_to_notebook`, and `read_notebook`.
+- [ ] Updated `sdaa/src/agents/workers.py` to inject new tools and instructions.
+- [ ] Updated `main.py` to initialize context management.
+- [ ] Verified context clearing and notebook functionality via tests.
+
+### Next Steps & Continuity
+- Implement the changes and verify with a test script.

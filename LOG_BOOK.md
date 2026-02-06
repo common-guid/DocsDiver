@@ -67,3 +67,18 @@ Implemented optimization to skip redundant worker execution during pre-chat audi
 Resolved two crashing bugs when using the skip-workers optimization (existing artifacts).
 - Fixed `ArtifactLoaderModel` to simulate a proper tool execution loop by returning a `FunctionCall` followed by a text response, preventing "malformed function call" errors.
 - Fixed `KeyError: Context variable not found: id` in the Google ADK by defining a prompt sanitization layer that replaces identifier-like curly braces (e.g., `{id}` -> `(id)`) in both Langfuse-fetched prompts and injected report content, preventing the ADK's template engine from attempting invalid substitutions.
+
+## OpenRouter Reasoning Support | 2026-02-01
+Added support for `x-ai/grok-4.1-fast` reasoning parameter and `reasoning_details` persistence.
+- Updated `OpenRouterModel` to inject `extra_body` for reasoning-enabled models.
+- Implemented serialization/deserialization of `reasoning_details` into ADK `Content` objects using `inline_data` parts.
+- Added regression tests for reasoning parameter and persistence.
+
+## Langfuse Connectivity Check Fix | 2026-02-05
+Improved the Langfuse availability check in `sdaa/src/core/instrumentation.py`.
+- Changed the connectivity check to target `/api/public/health` instead of the root path to ensure the service is actually responsive.
+- Added `raise_for_status()` to treat HTTP errors (like 404/500) as unreachability.
+- This prevents `OTLPSpanExporter` from being initialized when the host is reachable but not functioning correctly (or hanging on specific endpoints), resolving `ReadTimeout` errors during execution.
+
+## Synthesis Prompt Langfuse Migration | 2026-02-05
+Migrated the hardcoded report synthesis prompt in `coordinator.py` to Langfuse, enabling dynamic updates to the final report structure without code changes.

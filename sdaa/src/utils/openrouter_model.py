@@ -4,10 +4,25 @@ from typing import AsyncGenerator, Optional, List, Dict, Any
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
 from openai import AsyncOpenAI
+from opentelemetry import trace
+from pydantic import PrivateAttr
+import logging
+
+logger = logging.getLogger(__name__)
+
+try:
+    from langfuse import LangfuseOtelSpanAttributes
+except ImportError:
+    # Fallback for when langfuse is not installed or import fails
+    class LangfuseOtelSpanAttributes:
+        OBSERVATION_PROMPT_NAME = "langfuse.prompt.name"
+        OBSERVATION_PROMPT_VERSION = "langfuse.prompt.version"
 
 class OpenRouterModel(BaseLlm):
     model: str
     client: AsyncOpenAI
+
+    _langfuse_prompt: Optional[Any] = PrivateAttr(default=None)
 
     def __init__(self, model_name: str, base_url: str = "https://openrouter.ai/api/v1", api_key: Optional[str] = None):
         client = AsyncOpenAI(
@@ -15,6 +30,10 @@ class OpenRouterModel(BaseLlm):
             api_key=api_key or os.getenv("OPENROUTER_API_KEY"),
         )
         super().__init__(model=model_name, client=client)
+
+    def set_langfuse_prompt(self, prompt_obj: Any):
+        """Link a Langfuse prompt object to this model instance."""
+        self._langfuse_prompt = prompt_obj
 
     def _convert_schema(self, schema: Any) -> Dict[str, Any]:
         """Convert Google GenAI Schema to JSON Schema."""
@@ -67,6 +86,16 @@ class OpenRouterModel(BaseLlm):
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
+
+        if self._langfuse_prompt:
+            span = trace.get_current_span()
+            if span and span.is_recording():
+                try:
+                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME, self._langfuse_prompt.name)
+                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION, self._langfuse_prompt.version)
+                    logger.debug(f"Linked prompt '{self._langfuse_prompt.name}' (v{self._langfuse_prompt.version}) to trace.")
+                except Exception as e:
+                    logger.warning(f"Failed to link Langfuse prompt to trace: {e}")
 
         # IMPROVED HISTORY HANDLING
         # Clear the messages list and rebuild it correctly from llm_request.contents

@@ -61,5 +61,27 @@ class PromptManager:
             logger.error(f"Error fetching/compiling prompt '{name}': {e}")
             return ""
 
+    def get_prompt_object(self, name: str, label: str = "production", type: str = "text") -> Optional[Any]:
+        """
+        Fetch the raw Langfuse prompt object.
+
+        Args:
+            name: The name of the prompt in Langfuse.
+            label: The version label (default: "production").
+            type: The type of prompt ("text" or "chat").
+
+        Returns:
+            The Langfuse PromptClient object, or None if retrieval fails.
+        """
+        if not self._client:
+            logger.warning(f"Langfuse client not available. Cannot fetch prompt object '{name}'.")
+            return None
+
+        try:
+            return self._client.get_prompt(name, label=label, type=type)
+        except Exception as e:
+            logger.error(f"Error fetching prompt object '{name}': {e}")
+            return None
+
 # Global instance
 prompt_manager = PromptManager()

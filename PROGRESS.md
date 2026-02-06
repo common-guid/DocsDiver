@@ -183,7 +183,7 @@ Migrated hardcoded prompts for workers and coordinator to Langfuse Prompt Manage
 - Monitor prompt fetching latency and reliability during full audits.
 - Consider adding caching to `PromptManager` if latency becomes an issue.
 ## Phase: Operation Optimization | 2026-02-01
-Optimized pre-chat audit to skip redundant work and reuse existing artifacts.
+Optimized pre-chat audit to skip redundant worker execution during pre-chat audit.
 
 ### Tasks Completed
 - [x] Implemented `ArtifactLoaderModel` to simulate agent execution using existing artifact content.
@@ -206,3 +206,16 @@ Resolved crashing bugs when skipping workers and using Langfuse prompts containi
 
 ### Next Steps & Continuity
 - Monitor for other template-related crashes if new prompts introduce complex variable-like syntax.
+
+## Phase: Langfuse Linked Generation | 2026-02-01
+Enabled linking of Langfuse managed prompts to OpenTelemetry traces for better observability and evaluation.
+
+### Tasks Completed
+- [x] Extended `PromptManager` in `sdaa/src/utils/prompt_manager.py` to support retrieving raw prompt objects.
+- [x] Created `InstrumentedGemini` in `sdaa/src/utils/instrumented_gemini.py` to intercept generation calls and add prompt metadata to traces.
+- [x] Updated `OpenRouterModel` in `sdaa/src/utils/openrouter_model.py` to support prompt linking.
+- [x] Updated agent factories in `sdaa/src/agents/coordinator.py` and `sdaa/src/agents/workers.py` to fetch and bind prompt objects to models.
+- [x] Verified logic with unit tests in `tests/test_langfuse_linking.py`.
+
+### Next Steps & Continuity
+- Verify traces in Langfuse UI to ensure prompt versioning is correctly tracked.

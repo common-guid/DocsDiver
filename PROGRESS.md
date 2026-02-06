@@ -218,3 +218,14 @@ Implemented support for `x-ai/grok-4.1-fast` reasoning capabilities on OpenRoute
 
 ### Next Steps & Continuity
 - Verify with real Grok model if available.
+
+## Phase: Synthesis Prompt Migration | 2026-02-05
+Migrated the hardcoded synthesis prompt in the coordinator to Langfuse Prompt Management.
+
+### Tasks Completed
+- [x] Updated `_build_synthesis_prompt` in `sdaa/src/agents/coordinator.py` to fetch the `report-synthesizer` prompt from Langfuse.
+- [x] Added logging and error handling for prompt retrieval failures in the synthesis pipeline.
+- [x] Verified code syntax and implementation logic.
+
+### Next Steps & Continuity
+- Ensure the `report-synthesizer` prompt is correctly configured in the Langfuse production environment with expected variables.

@@ -111,7 +111,9 @@ def setup_instrumentation():
             # Lightweight connectivity check: if Langfuse host is not reachable,
             # skip configuring the exporter to avoid noisy connection errors.
             try:
-                requests.get(lf_host, timeout=1)
+                # Check health endpoint specifically to ensure service is up
+                health_url = f"{lf_host}/api/public/health"
+                requests.get(health_url, timeout=1).raise_for_status()
                 lf_reachable = True
             except Exception:
                 lf_reachable = False

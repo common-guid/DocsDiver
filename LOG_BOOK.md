@@ -68,6 +68,11 @@ Resolved two crashing bugs when using the skip-workers optimization (existing ar
 - Fixed `ArtifactLoaderModel` to simulate a proper tool execution loop by returning a `FunctionCall` followed by a text response, preventing "malformed function call" errors.
 - Fixed `KeyError: Context variable not found: id` in the Google ADK by defining a prompt sanitization layer that replaces identifier-like curly braces (e.g., `{id}` -> `(id)`) in both Langfuse-fetched prompts and injected report content, preventing the ADK's template engine from attempting invalid substitutions.
 
+## Langfuse Linked Generation | 2026-02-01
+Enabled "Linked Generation" feature for Langfuse to link managed prompts to traces.
+- Extended `PromptManager` to return raw prompt objects.
+- Created `InstrumentedGemini` and updated `OpenRouterModel` to inject `langfuse.prompt.name` and `version` attributes into OpenTelemetry spans.
+- Updated agent factories to bind prompts to models.
 ## OpenRouter Reasoning Support | 2026-02-01
 Added support for `x-ai/grok-4.1-fast` reasoning parameter and `reasoning_details` persistence.
 - Updated `OpenRouterModel` to inject `extra_body` for reasoning-enabled models.

@@ -24,12 +24,19 @@ def create_permissions_agent(model=None):
     agent_config = config_loader.get("agents.permissions_agent", {})
     prompt_config = agent_config.get("prompt", {})
     
-    prompt = prompt_manager.get_prompt(
+    prompt_obj = prompt_manager.get_prompt_object(
         name=prompt_config.get("name", "permissions-agent"),
         label=prompt_config.get("label", "production")
     )
     
-    if not prompt:
+    if prompt_obj:
+        try:
+            prompt = prompt_obj.compile()
+            if hasattr(model, "set_langfuse_prompt"):
+                model.set_langfuse_prompt(prompt_obj)
+        except Exception as e:
+            prompt = f"Error: Failed to compile 'permissions-agent' prompt: {e}"
+    else:
         # Fallback if fetch fails or no key
         prompt = "Error: Could not fetch 'permissions-agent' prompt from Langfuse."
     
@@ -52,12 +59,19 @@ def create_constraints_agent(model=None):
     agent_config = config_loader.get("agents.constraints_agent", {})
     prompt_config = agent_config.get("prompt", {})
 
-    prompt = prompt_manager.get_prompt(
+    prompt_obj = prompt_manager.get_prompt_object(
         name=prompt_config.get("name", "negative-constraints-agent"),
         label=prompt_config.get("label", "production")
     )
     
-    if not prompt:
+    if prompt_obj:
+        try:
+            prompt = prompt_obj.compile()
+            if hasattr(model, "set_langfuse_prompt"):
+                model.set_langfuse_prompt(prompt_obj)
+        except Exception as e:
+            prompt = f"Error: Failed to compile 'negative-constraints-agent' prompt: {e}"
+    else:
         prompt = "Error: Could not fetch 'negative-constraints-agent' prompt from Langfuse."
 
     # Sanitize identifiers in braces to prevent ADK from treating them as variables
@@ -79,12 +93,19 @@ def create_boundaries_agent(model=None):
     agent_config = config_loader.get("agents.boundaries_agent", {})
     prompt_config = agent_config.get("prompt", {})
 
-    prompt = prompt_manager.get_prompt(
+    prompt_obj = prompt_manager.get_prompt_object(
         name=prompt_config.get("name", "security-boundaries-agent"),
         label=prompt_config.get("label", "production")
     )
     
-    if not prompt:
+    if prompt_obj:
+        try:
+            prompt = prompt_obj.compile()
+            if hasattr(model, "set_langfuse_prompt"):
+                model.set_langfuse_prompt(prompt_obj)
+        except Exception as e:
+            prompt = f"Error: Failed to compile 'security-boundaries-agent' prompt: {e}"
+    else:
         prompt = "Error: Could not fetch 'security-boundaries-agent' prompt from Langfuse."
 
     # Escape braces to prevent ADK from treating them as variables

@@ -64,12 +64,23 @@ def create_coordinator_agent(provider: str = "openrouter", model=None):
     agent_config = config_loader.get("agents.coordinator", {})
     prompt_config = agent_config.get("prompt", {})
     
-    prompt = prompt_manager.get_prompt(
+    # Retrieve raw prompt object for linking
+    prompt_obj = prompt_manager.get_prompt_object(
         name=prompt_config.get("name", "coordinator-agent"),
         label=prompt_config.get("label", "production")
     )
-    
-    if not prompt:
+
+    if prompt_obj:
+        try:
+            prompt = prompt_obj.compile()
+            # Link prompt to model trace
+            if hasattr(model, "set_langfuse_prompt"):
+                model.set_langfuse_prompt(prompt_obj)
+        except Exception as e:
+            prompt = f"Error: Failed to compile 'coordinator-agent' prompt: {e}"
+    else:
+        # Fallback to string fetch if object retrieval fails (though get_prompt_object handles exceptions returning None)
+        # or just set error message.
         prompt = "Error: Could not fetch 'coordinator-agent' prompt from Langfuse."
 
     # Sanitize identifiers in braces in the fetched prompt

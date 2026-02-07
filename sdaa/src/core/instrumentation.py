@@ -1,7 +1,7 @@
 import os
 import base64
 from dotenv import load_dotenv
-from opentelemetry import trace
+from opentelemetry import trace, baggage
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -39,6 +39,46 @@ class TaggingSpanProcessor(SpanProcessor):
             span.set_attribute(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"])
             # LangSmith tags (list of strings)
             span.set_attribute("langsmith.span.tags", ["ADK-DocsDiver"])
+
+    def on_end(self, span):
+        pass
+
+    def shutdown(self):
+        pass
+
+    def force_flush(self, timeout_millis=30000):
+        pass
+
+
+class PromptLinkingSpanProcessor(SpanProcessor):
+    """
+    SpanProcessor that inspects OpenTelemetry Baggage for Langfuse prompt metadata
+    and sets them as span attributes. This allows attributes to be attached to
+    spans created by auto-instrumentation (like GoogleADKInstrumentor) where
+    we cannot directly access the span object during creation.
+    """
+    def on_start(self, span, parent_context):
+        # Baggage is automatically propagated in the context
+        prompt_name = baggage.get_baggage("langfuse.prompt.name", context=parent_context)
+        prompt_version = baggage.get_baggage("langfuse.prompt.version", context=parent_context)
+
+        if prompt_name:
+            # Use the attribute keys expected by Langfuse
+            # If using the class defined at top of file (or imported), check if valid
+            key_name = getattr(LangfuseOtelSpanAttributes, "OBSERVATION_PROMPT_NAME", "langfuse.prompt.name")
+            span.set_attribute(key_name, prompt_name)
+
+        if prompt_version:
+            key_version = getattr(LangfuseOtelSpanAttributes, "OBSERVATION_PROMPT_VERSION", "langfuse.prompt.version")
+            try:
+                # Version might be integer, ensure correct type if needed (Langfuse usually takes int or string)
+                # OTel attributes support int.
+                if isinstance(prompt_version, str) and prompt_version.isdigit():
+                    span.set_attribute(key_version, int(prompt_version))
+                else:
+                    span.set_attribute(key_version, prompt_version)
+            except Exception:
+                span.set_attribute(key_version, prompt_version)
 
     def on_end(self, span):
         pass
@@ -144,6 +184,9 @@ def setup_instrumentation():
     if has_exporter:
         # Root-span tagging for both LangSmith and Langfuse traces
         provider.add_span_processor(TaggingSpanProcessor())
+        # Add PromptLinking processor to capture baggage metadata on generation spans
+        provider.add_span_processor(PromptLinkingSpanProcessor())
+
         trace.set_tracer_provider(provider)
 
         # Initialize Google ADK Instrumentation

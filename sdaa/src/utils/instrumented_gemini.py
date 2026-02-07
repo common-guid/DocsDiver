@@ -1,6 +1,6 @@
 from typing import Optional, Any
 from google.adk.models import Gemini, LlmRequest, LlmResponse
-from opentelemetry import trace
+from opentelemetry import trace, baggage, context
 from pydantic import PrivateAttr
 import logging
 
@@ -25,18 +25,24 @@ class InstrumentedGemini(Gemini):
         self._langfuse_prompt = prompt_obj
 
     async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
+        token = None
         if self._langfuse_prompt:
-            span = trace.get_current_span()
-            # Note: get_current_span() returns a NonRecordingSpan if no span is active,
-            # but is_recording() handles that check.
-            if span and span.is_recording():
-                try:
-                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME, self._langfuse_prompt.name)
-                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION, self._langfuse_prompt.version)
-                    logger.debug(f"Linked prompt '{self._langfuse_prompt.name}' (v{self._langfuse_prompt.version}) to trace.")
-                except Exception as e:
-                    logger.warning(f"Failed to link Langfuse prompt to trace: {e}")
+            try:
+                # Use Baggage to propagate prompt metadata to the child span created by auto-instrumentation
+                # We create a new context with the baggage and attach it.
+                ctx = context.get_current()
+                ctx = baggage.set_baggage("langfuse.prompt.name", self._langfuse_prompt.name, context=ctx)
+                ctx = baggage.set_baggage("langfuse.prompt.version", str(self._langfuse_prompt.version), context=ctx)
+                token = context.attach(ctx)
 
-        # Delegate to the parent implementation
-        async for chunk in super().generate_content_async(llm_request, stream=stream):
-            yield chunk
+                logger.debug(f"Attached baggage for prompt '{self._langfuse_prompt.name}' (v{self._langfuse_prompt.version})")
+            except Exception as e:
+                logger.warning(f"Failed to attach Langfuse prompt baggage: {e}")
+
+        try:
+            # Delegate to the parent implementation within the context
+            async for chunk in super().generate_content_async(llm_request, stream=stream):
+                yield chunk
+        finally:
+            if token is not None:
+                context.detach(token)

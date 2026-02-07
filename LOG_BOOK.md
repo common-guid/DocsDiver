@@ -73,3 +73,17 @@ Enabled "Linked Generation" feature for Langfuse to link managed prompts to trac
 - Extended `PromptManager` to return raw prompt objects.
 - Created `InstrumentedGemini` and updated `OpenRouterModel` to inject `langfuse.prompt.name` and `version` attributes into OpenTelemetry spans.
 - Updated agent factories to bind prompts to models.
+## OpenRouter Reasoning Support | 2026-02-01
+Added support for `x-ai/grok-4.1-fast` reasoning parameter and `reasoning_details` persistence.
+- Updated `OpenRouterModel` to inject `extra_body` for reasoning-enabled models.
+- Implemented serialization/deserialization of `reasoning_details` into ADK `Content` objects using `inline_data` parts.
+- Added regression tests for reasoning parameter and persistence.
+
+## Langfuse Connectivity Check Fix | 2026-02-05
+Improved the Langfuse availability check in `sdaa/src/core/instrumentation.py`.
+- Changed the connectivity check to target `/api/public/health` instead of the root path to ensure the service is actually responsive.
+- Added `raise_for_status()` to treat HTTP errors (like 404/500) as unreachability.
+- This prevents `OTLPSpanExporter` from being initialized when the host is reachable but not functioning correctly (or hanging on specific endpoints), resolving `ReadTimeout` errors during execution.
+
+## Synthesis Prompt Langfuse Migration | 2026-02-05
+Migrated the hardcoded report synthesis prompt in `coordinator.py` to Langfuse, enabling dynamic updates to the final report structure without code changes.

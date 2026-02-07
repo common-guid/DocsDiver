@@ -1,7 +1,12 @@
 from google.adk.agents import LlmAgent
 import re
+import logging
 from google.adk.agents.readonly_context import ReadonlyContext
 from sdaa.src.utils.mock_model import MockModel
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
 from sdaa.src.tools.file_ops import read_file
 from sdaa.src.tools.reporting import generate_final_report
 from sdaa.src.agents.workers import (
@@ -28,44 +33,19 @@ def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
     if not boundaries_report:
         boundaries_report = "MISSING: boundaries_report"
 
-    return f"""
-# Role
-You are the **Principal Security Architect (PSA)**. You must synthesize a final audit report from three worker reports provided below. Do NOT call or delegate to any other agents. You MUST call `generate_final_report` with the full markdown content of your final report.
+    prompt = prompt_manager.get_prompt(
+        name="report-synthesizer",
+        label="production",
+        permissions_report=permissions_report,
+        constraints_report=constraints_report,
+        boundaries_report=boundaries_report
+    )
 
-# Required Output Format: The Master Audit Report
-Your final response must use this structure:
+    if not prompt:
+        logger.error("Failed to fetch 'report-synthesizer' prompt from Langfuse.")
+        return "Error: Could not fetch 'report-synthesizer' prompt from Langfuse."
 
-## 1. Executive Summary
-*High-level assessment of the application's security posture based on the documentation coverage.*
-
-## 2. Architecture & Trust Model
-*Synthesize the findings from the Boundary Mapper into a coherent paragraph describing the stack.*
-
-## 3. Key Findings & Risks
-*   **Contradictions:** [List conflicts between different documentation sections]
-*   **Missing Controls:** [List areas where documentation is silent on critical security]
-*   **Critical Logic Flaws:** [Highlights from the Logic Auditor]
-
-## 4. Master Test Plan (Consolidated)
-*Merge the test tables from all three agents into one master table. Remove duplicates. Prioritize by Risk.*
-
-| ID | Category | Test Scenario | Source Agent | Risk |
-|:---|:---|:---|:---|:---|
-
-# Source Reports
-## Permissions Report
-{permissions_report}
-
-## Constraints Report
-{constraints_report}
-
-## Boundaries Report
-{boundaries_report}
-
-# Mandatory Reporting
-1. Call `generate_final_report` with the full markdown you produce.
-2. After calling the tool, return the **exact same markdown** content and nothing else.
-"""
+    return prompt
 
 def create_coordinator_agent(provider: str = "openrouter", model=None):
     if model is None:

@@ -219,3 +219,25 @@ Enabled linking of Langfuse managed prompts to OpenTelemetry traces for better o
 
 ### Next Steps & Continuity
 - Verify traces in Langfuse UI to ensure prompt versioning is correctly tracked.
+## Phase: OpenRouter Reasoning Support | 2026-02-01
+Implemented support for `x-ai/grok-4.1-fast` reasoning capabilities on OpenRouter.
+
+### Tasks Completed
+- [x] Updated `OpenRouterModel` to inject `extra_body={"reasoning": {"enabled": True}}` when using `grok-4.1-fast`.
+- [x] Implemented mechanism to capture `reasoning_details` from API responses and persist them in `LlmResponse` using `inline_data`.
+- [x] Implemented reconstruction logic to pass `reasoning_details` back to the API in subsequent requests, ensuring context preservation.
+- [x] Created `tests/test_openrouter_reasoning.py` to verify the feature end-to-end.
+
+### Next Steps & Continuity
+- Verify with real Grok model if available.
+
+## Phase: Synthesis Prompt Migration | 2026-02-05
+Migrated the hardcoded synthesis prompt in the coordinator to Langfuse Prompt Management.
+
+### Tasks Completed
+- [x] Updated `_build_synthesis_prompt` in `sdaa/src/agents/coordinator.py` to fetch the `report-synthesizer` prompt from Langfuse.
+- [x] Added logging and error handling for prompt retrieval failures in the synthesis pipeline.
+- [x] Verified code syntax and implementation logic.
+
+### Next Steps & Continuity
+- Ensure the `report-synthesizer` prompt is correctly configured in the Langfuse production environment with expected variables.

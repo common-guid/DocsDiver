@@ -18,6 +18,8 @@ except ImportError:
         OBSERVATION_PROMPT_NAME = "langfuse.prompt.name"
         OBSERVATION_PROMPT_VERSION = "langfuse.prompt.version"
 
+REASONING_MIME_TYPE = "application/x-reasoning-details"
+
 class OpenRouterModel(BaseLlm):
     model: str
     client: AsyncOpenAI
@@ -127,12 +129,19 @@ class OpenRouterModel(BaseLlm):
 
                 content_parts = []
                 tool_calls = []
+                reasoning_details = None
 
                 if hasattr(content, 'parts'):
                     for part in content.parts:
                         if part.text:
                             content_parts.append(part.text)
                         
+                        if part.inline_data and part.inline_data.mime_type == REASONING_MIME_TYPE:
+                            try:
+                                reasoning_details = json.loads(part.inline_data.data.decode("utf-8"))
+                            except Exception:
+                                pass
+
                         if hasattr(part, 'function_call') and part.function_call:
                             # Map FunctionCall to OpenAI tool_calls
                             # We need a tool_call_id. ADK might not persist it in the FunctionCall object directly 
@@ -205,6 +214,8 @@ class OpenRouterModel(BaseLlm):
                         # Ensure content is null if only tool calls (optional in some APIs, but safer)
                         if "content" not in msg:
                             msg["content"] = None 
+                    if reasoning_details:
+                        msg["reasoning_details"] = reasoning_details
                     messages.append(msg)
                 
                 elif role == "user":
@@ -224,11 +235,16 @@ class OpenRouterModel(BaseLlm):
             
             from openai import NOT_GIVEN
 
+            extra_body = None
+            if self.model == "x-ai/grok-4.1-fast":
+                extra_body = {"reasoning": {"enabled": True}}
+
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 stream=should_stream,
-                tools=openai_tools if openai_tools else NOT_GIVEN
+                tools=openai_tools if openai_tools else NOT_GIVEN,
+                extra_body=extra_body
             )
 
             if should_stream:
@@ -263,6 +279,15 @@ class OpenRouterModel(BaseLlm):
                 if message.content:
                     parts.append(types.Part.from_text(text=message.content))
                 
+                # Handle Reasoning Details (if present)
+                if hasattr(message, "reasoning_details") and message.reasoning_details:
+                    try:
+                        data_bytes = json.dumps(message.reasoning_details).encode("utf-8")
+                        blob = types.Blob(mime_type=REASONING_MIME_TYPE, data=data_bytes)
+                        parts.append(types.Part(inline_data=blob))
+                    except Exception:
+                        pass # Ignore serialization errors
+
                 if not parts:
                     # Empty response?
                     parts.append(types.Part.from_text(text=""))

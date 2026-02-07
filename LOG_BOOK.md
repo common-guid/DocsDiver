@@ -60,7 +60,7 @@ Refactored the configuration system to allow specifying different models for `op
 ## Operation Optimization | 2026-02-01
 Implemented optimization to skip redundant worker execution during pre-chat audit.
 -   Added `ArtifactLoaderModel` to load existing artifacts instead of re-running agents.
--   Added `--coordinator-only` CLI flag to bypass Map Maker and Workers, running only the Coordinator to synthesize the final report from existing artifacts.
+-   Added `--coordinator-only` CLI flag to bypass Map Maker and Worker execution.
 -   Refactored `main.py` to support these optimization flags.
 
 ## Skip Workers Logic Fix | 2026-02-01
@@ -87,3 +87,8 @@ Improved the Langfuse availability check in `sdaa/src/core/instrumentation.py`.
 
 ## Synthesis Prompt Langfuse Migration | 2026-02-05
 Migrated the hardcoded report synthesis prompt in `coordinator.py` to Langfuse, enabling dynamic updates to the final report structure without code changes.
+
+## OpenRouter xAI Fix | 2026-02-05
+Resolved `422 Unprocessable Entity` error with xAI provider ("untagged enum ModelInput").
+- Sanitized `OpenRouterModel` request payload by removing `reasoning_details` (which caused strict schema validation failure) and setting `content` to empty string instead of `null` when tool calls are present.
+- Updated `tests/test_openrouter_reasoning.py` to verify that `reasoning_details` are excluded from requests to ensure API compatibility.

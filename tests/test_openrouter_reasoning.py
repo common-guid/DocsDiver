@@ -77,8 +77,9 @@ async def test_reasoning_persistence_request():
         assistant_msg = messages[1]
         assert assistant_msg["role"] == "assistant"
         assert assistant_msg["content"] == "Thinking..."
-        assert "reasoning_details" in assistant_msg
-        assert assistant_msg["reasoning_details"] == reasoning_data
+        # We explicitly DO NOT want reasoning_details to be sent back to the model as input
+        # to avoid "untagged enum ModelInput" errors from strict providers like xAI.
+        assert "reasoning_details" not in assistant_msg
 
 @pytest.mark.asyncio
 async def test_reasoning_persistence_response():

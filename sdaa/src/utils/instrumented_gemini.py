@@ -25,11 +25,12 @@ class InstrumentedGemini(Gemini):
         self._langfuse_prompt = prompt_obj
 
     async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
-        if self._langfuse_prompt:
-            span = trace.get_current_span()
-            # Note: get_current_span() returns a NonRecordingSpan if no span is active,
-            # but is_recording() handles that check.
-            if span and span.is_recording():
+        tracer = trace.get_tracer(__name__)
+
+        # Start a manual span for Gemini generation
+        # This acts as a reliable anchor for Langfuse prompt linking, regardless of internal ADK instrumentation
+        with tracer.start_as_current_span("Gemini.generate_content") as span:
+            if self._langfuse_prompt:
                 try:
                     span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME, self._langfuse_prompt.name)
                     span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION, self._langfuse_prompt.version)
@@ -37,6 +38,6 @@ class InstrumentedGemini(Gemini):
                 except Exception as e:
                     logger.warning(f"Failed to link Langfuse prompt to trace: {e}")
 
-        # Delegate to the parent implementation
-        async for chunk in super().generate_content_async(llm_request, stream=stream):
-            yield chunk
+            # Delegate to the parent implementation
+            async for chunk in super().generate_content_async(llm_request, stream=stream):
+                yield chunk

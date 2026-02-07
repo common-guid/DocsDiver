@@ -241,3 +241,14 @@ Migrated the hardcoded synthesis prompt in the coordinator to Langfuse Prompt Ma
 
 ### Next Steps & Continuity
 - Ensure the `report-synthesizer` prompt is correctly configured in the Langfuse production environment with expected variables.
+
+## Phase: Observability Fixes | 2026-02-05
+Resolved regressions in observability where LangSmith traces were missing and Langfuse prompt linking was broken.
+
+### Tasks Completed
+- [x] Implemented manual OpenTelemetry tracing in `OpenRouterModel` to ensure spans are generated and sent to LangSmith.
+- [x] Implemented manual span wrapping in `InstrumentedGemini` to ensure Langfuse prompt attributes are reliably attached to a generation span, independent of auto-instrumentation quirks.
+- [x] Created `tests/test_observability.py` to verify LangSmith exporter setup and Langfuse prompt linking for both models.
+
+### Next Steps & Continuity
+- Monitor LangSmith and Langfuse dashboards to confirm live data flow.

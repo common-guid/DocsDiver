@@ -87,3 +87,7 @@ Improved the Langfuse availability check in `sdaa/src/core/instrumentation.py`.
 
 ## Synthesis Prompt Langfuse Migration | 2026-02-05
 Migrated the hardcoded report synthesis prompt in `coordinator.py` to Langfuse, enabling dynamic updates to the final report structure without code changes.
+
+## Observability Fixes (LangSmith & Langfuse) | 2026-02-05
+Fixed regression where LangSmith traces were missing by adding manual span generation to `OpenRouterModel`.
+Fixed Langfuse Linked Generation by ensuring `InstrumentedGemini` and `OpenRouterModel` reliably attach `langfuse.prompt` attributes to generation spans.

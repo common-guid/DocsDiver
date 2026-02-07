@@ -25,18 +25,18 @@ class InstrumentedGemini(Gemini):
         self._langfuse_prompt = prompt_obj
 
     async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
-        if self._langfuse_prompt:
-            span = trace.get_current_span()
-            # Note: get_current_span() returns a NonRecordingSpan if no span is active,
-            # but is_recording() handles that check.
-            if span and span.is_recording():
-                try:
-                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME, self._langfuse_prompt.name)
-                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION, self._langfuse_prompt.version)
-                    logger.debug(f"Linked prompt '{self._langfuse_prompt.name}' (v{self._langfuse_prompt.version}) to trace.")
-                except Exception as e:
-                    logger.warning(f"Failed to link Langfuse prompt to trace: {e}")
+        tracer = trace.get_tracer(__name__)
+        # Use CLIENT kind to indicate an outgoing request to an external service (Gemini API)
+        with tracer.start_as_current_span(f"Gemini.generate_content_async", kind=trace.SpanKind.CLIENT) as span:
+            if self._langfuse_prompt:
+                if span and span.is_recording():
+                    try:
+                        span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME, self._langfuse_prompt.name)
+                        span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION, self._langfuse_prompt.version)
+                        logger.debug(f"Linked prompt '{self._langfuse_prompt.name}' (v{self._langfuse_prompt.version}) to trace.")
+                    except Exception as e:
+                        logger.warning(f"Failed to link Langfuse prompt to trace: {e}")
 
-        # Delegate to the parent implementation
-        async for chunk in super().generate_content_async(llm_request, stream=stream):
-            yield chunk
+            # Delegate to the parent implementation
+            async for chunk in super().generate_content_async(llm_request, stream=stream):
+                yield chunk

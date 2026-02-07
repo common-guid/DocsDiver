@@ -208,7 +208,7 @@ Resolved crashing bugs when skipping workers and using Langfuse prompts containi
 - Monitor for other template-related crashes if new prompts introduce complex variable-like syntax.
 
 ## Phase: OpenRouter Reasoning Support | 2026-02-01
-Implemented support for `x-ai/grok-4.1-fast` reasoning capabilities on OpenRouter.
+Implemented support for `x-ai/grok-4.1-fast` reasoning parameter and `reasoning_details` persistence.
 
 ### Tasks Completed
 - [x] Updated `OpenRouterModel` to inject `extra_body={"reasoning": {"enabled": True}}` when using `grok-4.1-fast`.
@@ -229,3 +229,13 @@ Migrated the hardcoded synthesis prompt in the coordinator to Langfuse Prompt Ma
 
 ### Next Steps & Continuity
 - Ensure the `report-synthesizer` prompt is correctly configured in the Langfuse production environment with expected variables.
+
+## Phase: OpenRouter xAI Fix | 2026-02-05
+Resolved `422 Unprocessable Entity` error with xAI provider ("untagged enum ModelInput").
+
+### Tasks Completed
+- [x] Sanitized `OpenRouterModel` request payload by removing `reasoning_details` (which caused strict schema validation failure) and setting `content` to empty string instead of `null` when tool calls are present.
+- [x] Updated `tests/test_openrouter_reasoning.py` to verify that `reasoning_details` are excluded from requests to ensure API compatibility.
+
+### Next Steps & Continuity
+- Verify with real Grok model if available.

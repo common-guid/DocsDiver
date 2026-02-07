@@ -182,11 +182,12 @@ class OpenRouterModel(BaseLlm):
                         msg["content"] = "".join(content_parts)
                     if tool_calls:
                         msg["tool_calls"] = tool_calls
-                        # Ensure content is null if only tool calls (optional in some APIs, but safer)
+                        # Ensure content is empty string if only tool calls (safer for some providers like xAI)
                         if "content" not in msg:
-                            msg["content"] = None 
-                    if reasoning_details:
-                        msg["reasoning_details"] = reasoning_details
+                            msg["content"] = ""
+                    # Do not send reasoning_details back to the model as it may cause validation errors
+                    # if reasoning_details:
+                    #    msg["reasoning_details"] = reasoning_details
                     messages.append(msg)
                 
                 elif role == "user":

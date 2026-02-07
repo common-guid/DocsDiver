@@ -89,19 +89,21 @@ class OpenRouterModel(BaseLlm):
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
 
-        if self._langfuse_prompt:
-            span = trace.get_current_span()
-            if span and span.is_recording():
-                try:
-                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME, self._langfuse_prompt.name)
-                    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION, self._langfuse_prompt.version)
-                    logger.debug(f"Linked prompt '{self._langfuse_prompt.name}' (v{self._langfuse_prompt.version}) to trace.")
-                except Exception as e:
-                    logger.warning(f"Failed to link Langfuse prompt to trace: {e}")
+        tracer = trace.get_tracer(__name__)
+        # Use CLIENT kind to indicate an outgoing request to an external service (OpenRouter API)
+        with tracer.start_as_current_span(f"OpenRouterModel.generate_content_async", kind=trace.SpanKind.CLIENT) as span:
+            if self._langfuse_prompt:
+                if span and span.is_recording():
+                    try:
+                        span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME, self._langfuse_prompt.name)
+                        span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION, self._langfuse_prompt.version)
+                        logger.debug(f"Linked prompt '{self._langfuse_prompt.name}' (v{self._langfuse_prompt.version}) to trace.")
+                    except Exception as e:
+                        logger.warning(f"Failed to link Langfuse prompt to trace: {e}")
 
-        # IMPROVED HISTORY HANDLING
-        # Clear the messages list and rebuild it correctly from llm_request.contents
-        messages = []
+            # IMPROVED HISTORY HANDLING
+            # Clear the messages list and rebuild it correctly from llm_request.contents
+            messages = []
         
         # Add system instruction if present
         if llm_request.config and llm_request.config.system_instruction:
@@ -228,77 +230,77 @@ class OpenRouterModel(BaseLlm):
         if llm_request.config and hasattr(llm_request.config, 'tools') and llm_request.config.tools:
             openai_tools = self._convert_tools(llm_request.config.tools)
 
-        try:
-            # Note: stream=False simplifies tool handling. 
-            should_stream = stream
-            if openai_tools:
-                should_stream = False
-            
-            from openai import NOT_GIVEN
+            try:
+                # Note: stream=False simplifies tool handling.
+                should_stream = stream
+                if openai_tools:
+                    should_stream = False
 
-            extra_body = None
-            if self.model == "x-ai/grok-4.1-fast":
-                extra_body = {"reasoning": {"enabled": True}}
+                from openai import NOT_GIVEN
 
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                stream=should_stream,
-                tools=openai_tools if openai_tools else NOT_GIVEN,
-                extra_body=extra_body
-            )
+                extra_body = None
+                if self.model == "x-ai/grok-4.1-fast":
+                    extra_body = {"reasoning": {"enabled": True}}
 
-            if should_stream:
-                async for chunk in response:
-                    content_text = chunk.choices[0].delta.content or ""
-                    if content_text:
-                        content = types.Content(parts=[types.Part.from_text(text=content_text)])
-                        yield LlmResponse(content=content)
-            else:
-                message = response.choices[0].message
-                parts = []
-                
-                # Handle Tool Calls
-                if message.tool_calls:
-                    for i, tool_call in enumerate(message.tool_calls):
-                        # Force ADK-compliant ID format: functions.{name}:{index}
-                        # This appears to be what the ADK runner expects or generates for responses.
-                        func_name = tool_call.function.name
-                        tc_id = f"functions.{func_name}:{i}"
-                        func_args = json.loads(tool_call.function.arguments)
-                        parts.append(
-                            types.Part(
-                                function_call=types.FunctionCall(
-                                    name=func_name,
-                                    args=func_args,
-                                    id=tc_id
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    stream=should_stream,
+                    tools=openai_tools if openai_tools else NOT_GIVEN,
+                    extra_body=extra_body
+                )
+
+                if should_stream:
+                    async for chunk in response:
+                        content_text = chunk.choices[0].delta.content or ""
+                        if content_text:
+                            content = types.Content(parts=[types.Part.from_text(text=content_text)])
+                            yield LlmResponse(content=content)
+                else:
+                    message = response.choices[0].message
+                    parts = []
+
+                    # Handle Tool Calls
+                    if message.tool_calls:
+                        for i, tool_call in enumerate(message.tool_calls):
+                            # Force ADK-compliant ID format: functions.{name}:{index}
+                            # This appears to be what the ADK runner expects or generates for responses.
+                            func_name = tool_call.function.name
+                            tc_id = f"functions.{func_name}:{i}"
+                            func_args = json.loads(tool_call.function.arguments)
+                            parts.append(
+                                types.Part(
+                                    function_call=types.FunctionCall(
+                                        name=func_name,
+                                        args=func_args,
+                                        id=tc_id
+                                    )
                                 )
                             )
-                        )
-                
-                # Handle Text
-                if message.content:
-                    parts.append(types.Part.from_text(text=message.content))
-                
-                # Handle Reasoning Details (if present)
-                if hasattr(message, "reasoning_details") and message.reasoning_details:
-                    try:
-                        data_bytes = json.dumps(message.reasoning_details).encode("utf-8")
-                        blob = types.Blob(mime_type=REASONING_MIME_TYPE, data=data_bytes)
-                        parts.append(types.Part(inline_data=blob))
-                    except Exception:
-                        pass # Ignore serialization errors
 
-                if not parts:
-                    # Empty response?
-                    parts.append(types.Part.from_text(text=""))
+                    # Handle Text
+                    if message.content:
+                        parts.append(types.Part.from_text(text=message.content))
 
-                content = types.Content(parts=parts, role="model")
+                    # Handle Reasoning Details (if present)
+                    if hasattr(message, "reasoning_details") and message.reasoning_details:
+                        try:
+                            data_bytes = json.dumps(message.reasoning_details).encode("utf-8")
+                            blob = types.Blob(mime_type=REASONING_MIME_TYPE, data=data_bytes)
+                            parts.append(types.Part(inline_data=blob))
+                        except Exception:
+                            pass # Ignore serialization errors
+
+                    if not parts:
+                        # Empty response?
+                        parts.append(types.Part.from_text(text=""))
+
+                    content = types.Content(parts=parts, role="model")
+                    yield LlmResponse(content=content)
+
+            except Exception as e:
+                # Handle error gracefully or re-raise
+                # Returning an error message as content for now
+                error_msg = f"Error calling OpenRouter: {str(e)}"
+                content = types.Content(parts=[types.Part.from_text(text=error_msg)])
                 yield LlmResponse(content=content)
-
-        except Exception as e:
-            # Handle error gracefully or re-raise
-            # Returning an error message as content for now
-            error_msg = f"Error calling OpenRouter: {str(e)}"
-            content = types.Content(parts=[types.Part.from_text(text=error_msg)])
-            yield LlmResponse(content=content)

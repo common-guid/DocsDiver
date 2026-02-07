@@ -74,18 +74,14 @@ def setup_instrumentation():
         print("LangSmith API key not set. Skipping LangSmith tracing configuration.")
 
     provider: TracerProvider
-    if ls_api_key:
-        # LangSmith configure() is expected to install a global TracerProvider.
-        current_provider = trace.get_tracer_provider()
-        if isinstance(current_provider, TracerProvider):
-            provider = current_provider
-        else:
-            # Fallback: if configure() used a different provider type, create our own for Langfuse.
-            provider = TracerProvider()
-            trace.set_tracer_provider(provider)
+    # LangSmith configure() is expected to install a global TracerProvider.
+    current_provider = trace.get_tracer_provider()
+    if isinstance(current_provider, TracerProvider):
+        provider = current_provider
     else:
-        # No LangSmith configured; create our own provider for Langfuse / custom tagging
+        # Fallback: if configure() used a different provider type, create our own for Langfuse.
         provider = TracerProvider()
+        # Only set if we created a new one
         trace.set_tracer_provider(provider)
 
     # --- Langfuse Setup ---
@@ -144,7 +140,10 @@ def setup_instrumentation():
     if has_exporter:
         # Root-span tagging for both LangSmith and Langfuse traces
         provider.add_span_processor(TaggingSpanProcessor())
-        trace.set_tracer_provider(provider)
+
+        # Only set if provider is different from current global (to avoid warning)
+        if trace.get_tracer_provider() != provider:
+            trace.set_tracer_provider(provider)
 
         # Initialize Google ADK Instrumentation
         # This will auto-instrument the Google ADK classes to emit traces

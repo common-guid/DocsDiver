@@ -9,13 +9,15 @@ Built with the **Google Agent Development Kit (ADK)**, it orchestrates a team of
 ## 🚀 Features
 
 *   **Automated Knowledge Mapping:** Scans documentation directories to build a semantic Table of Contents (`ToC.json`).
+*   **Automated Pre-chat Audit:** Automatically performs a sequential analysis sweep across all documentation to generate initial security artifacts and a synthesized threat model before the interactive session begins.
 *   **Multi-Agent Architecture:**
     *   **Coordinator (PSA):** Acts as the Principal Security Architect, synthesizing results.
     *   **Permissions Agent:** Maps "Who can do what" (RBAC, ACLs).
     *   **Constraints Agent:** Identifies "What cannot happen" (Invariants, Business Logic).
     *   **Boundaries Agent:** Maps "Where data flows" (Trust Zones, APIs, Ingress/Egress).
-*   **Cross-Context Analysis:** Detects contradictions between different documentation sections (e.g., a constraint says "X is immutable," but an API doc shows a `PUT /X` endpoint).
-*   **Master Test Plan Generation:** Auto-generates prioritized security test cases (AuthZ, Logic, Network) based on findings.
+*   **Langfuse Prompt Management:** All agent instructions are managed dynamically via Langfuse, allowing for remote updates and versioning without code changes.
+*   **Cross-Context Analysis:** Detects contradictions between different documentation sections.
+*   **Master Test Plan Generation:** Auto-generates prioritized security test cases based on findings.
 
 ---
 
@@ -23,25 +25,21 @@ Built with the **Google Agent Development Kit (ADK)**, it orchestrates a team of
 
 ### Repository Structure
 
-*   `main.py`: The entry point for the CLI application. Initializes the MapMaker and the Agent Coordinator.
-*   `sdaa/src/agents/`: Contains the logic for the AI agents.
-    *   `coordinator.py`: Defines the Principal Security Architect (PSA) agent.
-    *   `workers.py`: Defines the specialized sub-agents (Permissions, Constraints, Boundaries).
-*   `sdaa/src/core/`: Core system logic.
-    *   `map_maker.py`: Scans documentation to generate the semantic Table of Contents (`ToC.json`) under the configured output directory (`system.output_dir`).
-*   `sdaa/src/tools/`: Tool definitions used by the agents.
-    *   `file_ops.py`: File system operations (`read_file`, `list_files`) for accessing documentation.
-    *   `reporting.py`: Functions to log findings and generate the final report (`generate_final_report`).
-*   `docs-for-testing/`: Default directory containing the markdown documentation to be analyzed.
+*   `main.py`: The entry point for the CLI application. Coordinates Phases 1 (Map Maker), 2.5 (Pre-chat Audit), and 3 (Interactive Session).
+*   `sdaa/src/agents/`: Logic for the AI agents, including specialized instruction fetching from Langfuse.
+*   `sdaa/src/core/`: Core system logic, including instrumentation for dual-platform observability (LangSmith & Langfuse).
+*   `sdaa/src/tools/`: Tool definitions for file operations and generating reports in the `output/` directory.
+*   `output/`: Default directory for generated artifacts and reports.
+    *   `artifacts/`: Individual agent findings (e.g., `permissions_agent.md`).
+    *   `reports/`: Final synthesized reports (e.g., `Security_Threat_Model.md`).
 
-### Agent System & Tools
+### Agent System & Prompt Management
 
-The system operates on a **Coordinator-Worker** model:
+The system operates on a **Coordinator-Worker** model, with prompts fetched from Langfuse:
 
 1.  **Coordinator (PSA):**
     *   **Role:** Orchestrates the audit, delegates tasks, and synthesizes the final report.
-    *   **Tools:** `read_file`, `generate_final_report`.
-    *   **Function:** Decides whether to perform a full audit or answer specific user queries.
+    *   **Prompt:** Managed via `coordinator-agent` and `report-synthesizer` prompts in Langfuse.
 
 2.  **Worker Agents:**
     *   **Permissions Agent:** Analyzes RBAC and ACLs.
@@ -53,12 +51,14 @@ The system operates on a **Coordinator-Worker** model:
 
 ### Data Flow
 
-1.  **Ingestion:** On startup, `MapMaker` scans `system.docs_root` and generates `ToC.json` under `system.output_dir` (default: project root), creating a "mental map" of the available documentation.
-2.  **Interaction:** The user provides a command via the CLI (e.g., "Audit the application").
-3.  **Delegation:** The Coordinator consults the `ToC.json` and instructs the relevant Worker Agents to analyze specific files using `read_file`.
-4.  **Analysis:** Workers parse the content, extract security insights, and report back to the Coordinator.
-5.  **Synthesis:** The Coordinator aggregates these findings, cross-references them for contradictions, and generates the **Master Audit Report**.
-6.  **Output:** The final report is saved as `Security_Threat_Model.md` under `system.output_dir` via `generate_final_report`.
+1.  **Phase 1: Ingestion:** `MapMaker` scans `system.docs_root` and generates `ToC.json` in the `output/` directory, creating a "mental map" of the documentation.
+2.  **Phase 2.5: Pre-chat Audit (Automatic):** 
+    *   SDAA checks for existing artifacts in `output/artifacts/`.
+    *   If missing, it sequentially runs the Permissions, Constraints, and Boundaries agents.
+    *   The Coordinator then synthesizes these artifacts into a `Security_Threat_Model.md` report in `output/reports/`.
+3.  **Phase 3: Interaction:** The interactive CLI session begins. The Coordinator uses the already-generated artifacts to answer user questions or perform deeper dives.
+4.  **Delegation:** During interaction, the Coordinator consults `ToC.json` and instructs relevant Worker Agents to analyze specific files using `read_file`.
+5.  **Synthesis:** The Coordinator aggregates findings, cross-references for contradictions, and updates the **Master Audit Report**.
 
 #### `ToC.json` structure and tags
 
@@ -123,71 +123,59 @@ To start the interactive CLI agent:
 python main.py
 ```
 
+### CLI Flags
+
+| Flag | Description |
+| :--- | :--- |
+| `-m, --model` | Select model provider: `openrouter` (default), `gemini`, or `mock`. |
+| `--skip-map-maker` | Skip Phase 1 and use an existing `ToC.json`. |
+| `--toc-only` | Run only Phase 1 (Map Maker) and exit. |
+| `--coordinator-only`| Run Phase 2.5 using existing worker artifacts, bypassing the workers and Map Maker. |
+| `--no-rich` | Disable the Rich terminal UI for plain text output. |
+
 ### The Workflow
 
-1.  **Initialization:** The system first runs the **Map Maker** to index your documentation and generate `ToC.json`.
-2.  **Interactive Session:** You enter the CLI chat loop.
-    *   **Full Audit:** Type "Audit the application" or "Analyze the docs" to trigger the full multi-agent sweep.
+1.  **Phase 1: Map Maker:** Indexes your documentation to generate `ToC.json`.
+2.  **Phase 2.5: Pre-chat Audit:** Runs specialized agents sequentially to generate findings in `output/artifacts/` and a synthesized `Security_Threat_Model.md` in `output/reports/`. This phase is skipped if all outputs are already present.
+3.  **Phase 3: Interactive Session:** You enter the CLI chat loop.
     *   **Specific Queries:** Ask questions like "How does the billing logic work?" or "List all public API endpoints."
-3.  **Output:** The agent streams its thought process and final reports to the console.
-
-### Skipping ToC generation
-
-If you already have a `ToC.json` in your configured `system.output_dir`, you can skip the Map Maker phase:
-
-```bash
-python main.py --skip-map-maker
-```
-
-### ToC-only mode
-
-If you only want to generate or refresh the `ToC.json` and then exit (no interactive session), run:
-
-```bash
-python main.py --toc-only
-```
 
 ### Configuration (`sdaa/config/config.yaml`)
 
 ```yaml
 system:
-  docs_root: "./docs-for-testing" # Directory containing your markdown docs
-  toc_filename: "ToC.json"          # Name of the generated ToC file
-  output_dir: "."                  # Directory where ToC.json, reports, and artifacts are written
+  docs_root: "./docs-for-testing"
+  toc_filename: "ToC.json"
+  output_dir: "output"  # Artifacts and reports are saved here
 
-providers:
-  gemini:
-    model_name: "gemini-2.5-pro"  # Default model for complex reasoning
+agents:
+  coordinator:
+    openrouter: "x-ai/grok-4.1-fast"
+    gemini: "gemini-2.5-pro"
+  permissions_agent:
+    openrouter: "x-ai/grok-4.1-fast"
 ```
 
 #### Config options
 
-- `system.docs_root` (**required for meaningful runs, default: `"./docs-for-testing"`**): Directory that will be scanned for markdown docs. You can change this to point at your own docs tree.
-- `system.output_dir` (**optional, default: `"."`**): Directory where SDAA writes generated artifacts such as `ToC.json`, `Security_Threat_Model.md`, and future reports. Use this to route all outputs to a dedicated folder (for example, `"./artifacts"`).
-- `system.toc_filename` (**optional, default: `"ToC.json"`**): Name of the file where the generated table of contents is written (within `system.output_dir`).
-- `providers.gemini.model_name` (**optional, default: `"gemini-1.5-pro"` in `config.yaml`**): Model used when you run with `--model gemini`.
-- `providers.openrouter.base_url` (**optional, default: `"https://openrouter.ai/api/v1"`**): OpenRouter-compatible API endpoint.
-- `providers.openrouter.model_name` (**optional, default: `"anthropic/claude-3-opus"`**): Model used when you run with `--model openrouter` (the default).
-- `agents.*.provider` / `agents.*.model` (**optional, advanced**): Per-agent overrides that let you mix providers/models for `map_maker`, `coordinator`, and each worker.
+- `system.docs_root` (**required, default: `"./docs-for-testing"`**): Directory scanned for markdown docs.
+- `system.output_dir` (**optional, default: `"output"`**): Root directory for `ToC.json`, reports (`output/reports/`), and agent artifacts (`output/artifacts/`).
+- `agents.<agent_name>.<provider>`: Allows per-agent model selection for `gemini` or `openrouter`.
 
 #### Environment variables
 
-You can copy `.env.example` to `.env` and fill in the values:
+Copy `.env.example` to `.env` and fill in:
 
-- **Core model providers**
-  - `OPENROUTER_API_KEY` (**required if using the default `--model openrouter`**): API key for OpenRouter. The app will fail to call OpenRouter without this.
-  - `GEMINI_API_KEY` (**required if you run with `--model gemini`**): API key for Google Gemini via the ADK.
-- **Observability: LangSmith (all optional for core runtime)**
-  - `LANGSMITH_API_KEY` (**required to enable LangSmith tracing**): If set, traces are exported to LangSmith.
-  - `LANGSMITH_ENDPOINT` (optional, default: `"https://api.smith.langchain.com"`): Custom LangSmith OTLP endpoint.
-  - `LANGSMITH_PROJECT` (optional): Project name tag for traces.
-  - `LANGSMITH_TRACING` (optional): Convenience flag included in `.env.example`; current instrumentation only requires `LANGSMITH_API_KEY` but this flag is useful for tooling or future toggles.
-- **Observability: Langfuse (all optional for core runtime)**
-  - `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` (**both required to enable Langfuse**): If both are present, spans are exported to Langfuse.
-  - `LANGFUSE_HOST` (optional, default: `"http://localhost:3000"`): Base URL for your Langfuse deployment; used to build the OTEL HTTP traces endpoint (`<LANGFUSE_HOST>/api/public/otel/v1/traces`).
-  - `LANGFUSE_OTEL_TRACES_ENDPOINT` (optional): Full OTEL HTTP traces endpoint override, e.g. `"http://localhost:3000/api/public/otel/v1/traces"`. If set, this takes precedence over `LANGFUSE_HOST`.
-- **Misc**
-  - `LOG_LEVEL` (optional): Reserved for controlling log verbosity; currently not required for normal operation.
+- **Core Providers:** `OPENROUTER_API_KEY`, `GEMINI_API_KEY`.
+- **Observability:** `LANGSMITH_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`.
+
+### 🔍 Troubleshooting & Validation
+
+Use the following scripts to verify your setup:
+
+*   **API Connectivity:** `python scripts/validate_connections.py`
+*   **Langfuse Connectivity:** `python scripts/validate_langfuse_conn.py`
+*   **Trace Tagging:** `python scripts/test_langsmith_tracing.py`
 
 ---
 
@@ -219,14 +207,16 @@ Currently, `sdaa/src/core/map_maker.py` and `file_ops.py` support text/markdown.
 
 The following improvements are planned to evolve SDAA from a prototype to a production-grade tool:
 
-### 🔴 Immediate Priority (Alpha)
-- [ ] **Real Model Integration:** Replace `MockModel` with actual Google Gemini API calls via `google-adk`.
-- [ ] **Streaming Responses:** Improve the CLI UX to show agent thoughts in real-time.
-- [ ] **Output Persistence:** Save the "Master Audit Report" to a timestamped Markdown file (e.g., `reports/audit_2024-01-23.md`).
+### 🟢 Completed
+- [x] **Real Model Integration:** Full support for Google Gemini and OpenRouter (including reasoning models like Grok).
+- [x] **Streaming Responses:** Real-time thought and response streaming in the CLI.
+- [x] **Output Persistence:** Automated generation and saving of artifacts and synthesized reports to the `output/` directory.
+- [x] **Dynamic Prompting:** Migration of agent prompts to Langfuse for remote management.
+- [x] **Unified Observability:** End-to-end tracing using both LangSmith and Langfuse.
 
 ### 🟡 Medium Term (Beta)
-- [ ] **Vector Database Memory:** Instead of linear file reading, implement RAG (Retrieval-Augmented Generation) using a vector store (Chroma/Pinecone) for handling massive documentation sets.
-- [ ] **Graph Visualization:** Generate a visual graph (Mermaid.js or Graphviz) showing the Trust Boundaries and Data Flows discovered by the `boundaries_agent`.
+- [ ] **Vector Database Memory:** Implement RAG (Retrieval-Augmented Generation) for handling massive documentation sets.
+- [ ] **Graph Visualization:** Generate visual trust boundary maps (Mermaid.js).
 - [ ] **CI/CD Integration:** A GitHub Action that runs SDAA on every PR to `docs/` and comments on potential security contradictions.
 
 ### 🟢 Long Term (v1.0)

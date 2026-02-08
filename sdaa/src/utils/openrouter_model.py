@@ -233,8 +233,10 @@ class OpenRouterModel(BaseLlm):
                             # Ensure content is empty string if only tool calls (null is standard, but some providers require string)
                             if "content" not in msg:
                                 msg["content"] = ""
-                        if reasoning_details:
-                            msg["reasoning_details"] = reasoning_details
+                        # Note: xAI/Grok might fail if 'reasoning_details' is included in the message struct.
+                        # We omit it from the request payload to ensure compatibility.
+                        # if reasoning_details:
+                        #     msg["reasoning_details"] = reasoning_details
                         messages.append(msg)
 
                     elif role == "user":

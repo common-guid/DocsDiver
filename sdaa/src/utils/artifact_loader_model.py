@@ -40,9 +40,13 @@ class ArtifactLoaderModel(BaseLlm):
         else:
             # Step 1: Instruct the agent to call the tool with our existing content.
             # This ensures the tool executes (saving the file again) and the agent history is consistent.
+            # We must assign an ID to the tool call so that subsequent processing (e.g. OpenRouterModel)
+            # can correctly link the tool call to its response.
+            # We use a deterministic ID based on the tool name.
             fc = types.FunctionCall(
                 name=self.tool_name,
-                args={self.tool_arg_name: self.content}
+                args={self.tool_arg_name: self.content},
+                id=f"call_{self.tool_name}_artifact"
             )
             part = types.Part(function_call=fc)
             yield LlmResponse(content=types.Content(parts=[part], role="model"))

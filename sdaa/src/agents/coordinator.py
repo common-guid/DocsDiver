@@ -21,32 +21,6 @@ from sdaa.src.core.config_loader import config_loader
 
 # SUPERVISOR_PROMPT is now managed via Langfuse (coordinator-agent)
 
-def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
-    permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("permissions_report") or "").strip())
-    constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("constraints_report") or "").strip())
-    boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("boundaries_report") or "").strip())
-
-    if not permissions_report:
-        permissions_report = "MISSING: permissions_report"
-    if not constraints_report:
-        constraints_report = "MISSING: constraints_report"
-    if not boundaries_report:
-        boundaries_report = "MISSING: boundaries_report"
-
-    prompt = prompt_manager.get_prompt(
-        name="report-synthesizer",
-        label="production",
-        permissions_report=permissions_report,
-        constraints_report=constraints_report,
-        boundaries_report=boundaries_report
-    )
-
-    if not prompt:
-        logger.error("Failed to fetch 'report-synthesizer' prompt from Langfuse.")
-        return "Error: Could not fetch 'report-synthesizer' prompt from Langfuse."
-
-    return prompt
-
 def create_coordinator_agent(provider: str = "openrouter", model=None):
     if model is None:
         model = get_model_for_agent("coordinator", provider)
@@ -64,11 +38,20 @@ def create_coordinator_agent(provider: str = "openrouter", model=None):
     agent_config = config_loader.get("agents.coordinator", {})
     prompt_config = agent_config.get("prompt", {})
     
-    prompt = prompt_manager.get_prompt(
+    prompt_obj = prompt_manager.get_prompt_object(
         name=prompt_config.get("name", "coordinator-agent"),
         label=prompt_config.get("label", "production")
     )
     
+    prompt = ""
+    if prompt_obj:
+        try:
+            prompt = prompt_obj.compile()
+            if hasattr(model, "set_langfuse_prompt"):
+                model.set_langfuse_prompt(prompt_obj)
+        except Exception:
+            pass
+
     if not prompt:
         prompt = "Error: Could not fetch 'coordinator-agent' prompt from Langfuse."
 
@@ -86,6 +69,43 @@ def create_coordinator_agent(provider: str = "openrouter", model=None):
 def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
     if model is None:
         model = get_model_for_agent("coordinator", provider)
+
+    def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
+        permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("permissions_report") or "").strip())
+        constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("constraints_report") or "").strip())
+        boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("boundaries_report") or "").strip())
+
+        if not permissions_report:
+            permissions_report = "MISSING: permissions_report"
+        if not constraints_report:
+            constraints_report = "MISSING: constraints_report"
+        if not boundaries_report:
+            boundaries_report = "MISSING: boundaries_report"
+
+        prompt_obj = prompt_manager.get_prompt_object(
+            name="report-synthesizer",
+            label="production"
+        )
+
+        prompt = ""
+        if prompt_obj:
+            try:
+                prompt = prompt_obj.compile(
+                    permissions_report=permissions_report,
+                    constraints_report=constraints_report,
+                    boundaries_report=boundaries_report
+                )
+                if hasattr(model, "set_langfuse_prompt"):
+                    model.set_langfuse_prompt(prompt_obj)
+            except Exception as e:
+                logger.error(f"Error compiling synthesis prompt: {e}")
+                pass
+
+        if not prompt:
+            logger.error("Failed to fetch 'report-synthesizer' prompt from Langfuse.")
+            return "Error: Could not fetch 'report-synthesizer' prompt from Langfuse."
+
+        return prompt
 
     return LlmAgent(
         name="coordinator_psa",

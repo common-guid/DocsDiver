@@ -32,9 +32,31 @@ class PromptManager:
             logger.warning("Langfuse credentials not found. Prompt management will be disabled.")
             self._client = None
 
+    def get_prompt_object(self, name: str, label: str = "production", type: str = "text") -> Any:
+        """
+        Fetch the raw prompt object from Langfuse.
+
+        Args:
+            name: The name of the prompt in Langfuse.
+            label: The version label (default: "production").
+            type: The type of prompt ("text" or "chat").
+
+        Returns:
+            The Langfuse prompt object, or None if retrieval fails.
+        """
+        if not self._client:
+            logger.warning(f"Langfuse client not available. Cannot fetch prompt '{name}'.")
+            return None
+
+        try:
+            return self._client.get_prompt(name, label=label, type=type)
+        except Exception as e:
+            logger.error(f"Error fetching prompt object '{name}': {e}")
+            return None
+
     def get_prompt(self, name: str, label: str = "production", type: str = "text", **kwargs) -> str:
         """
-        Fetch a prompt from Langfuse.
+        Fetch a prompt from Langfuse and compile it.
         
         Args:
             name: The name of the prompt in Langfuse.
@@ -45,20 +67,16 @@ class PromptManager:
         Returns:
             The compiled prompt string, or an empty string/fallback if retrieval fails.
         """
-        if not self._client:
-            logger.warning(f"Langfuse client not available. Cannot fetch prompt '{name}'.")
+        prompt_obj = self.get_prompt_object(name, label=label, type=type)
+
+        if not prompt_obj:
             return ""
 
         try:
-            # Fetch prompt (defaults to text type unless specified otherwise)
-            # The python SDK get_prompt returns a PromptClient object
-            prompt_obj = self._client.get_prompt(name, label=label, type=type)
-            
             # Compile with variables
             return prompt_obj.compile(**kwargs)
-            
         except Exception as e:
-            logger.error(f"Error fetching/compiling prompt '{name}': {e}")
+            logger.error(f"Error compiling prompt '{name}': {e}")
             return ""
 
 # Global instance

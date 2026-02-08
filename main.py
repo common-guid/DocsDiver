@@ -24,8 +24,10 @@ from google.adk.runners import Runner
 from google.genai import types
 from google.adk.sessions import InMemorySessionService
 from google.adk.memory import InMemoryMemoryService
+from sdaa.src.utils.shared_session_service import SharedMemorySessionService
 from sdaa.src.ui.rich_chat import RichUI
 from sdaa.src.utils.artifact_loader_model import ArtifactLoaderModel
+from sdaa.src.tools.context_ops import context_manager
 
 def suppress_genai_non_text_warning() -> None:
     """
@@ -158,7 +160,8 @@ async def main():
     # Pass provider to create_coordinator_agent
     coordinator = create_coordinator_agent(provider=args.model)
 
-    session_service = InMemorySessionService()
+    # Use SharedMemorySessionService to allow tools to modify active session context
+    session_service = SharedMemorySessionService()
     memory_service = InMemoryMemoryService()
 
     # Initialize Runner
@@ -186,12 +189,19 @@ async def main():
             )
         # print(f"Session created: {session.id}")
 
+        # Register session for Context Management
+        context_manager.register_session(session_service, "sdaa", user_id, session_id)
+
     except Exception as e:
         ui.print_error(f"creating session: {e}")
 
     # Ensure output directories exist
     config_loader.get_reports_dir()
     config_loader.get_artifacts_dir()
+
+    # Ensure notebooks directory exists
+    os.makedirs(os.path.join(config_loader.get_artifacts_dir(), "notebooks"), exist_ok=True)
+
     missing_outputs = get_missing_prechat_outputs()
     if missing_outputs or args.coordinator_only:
         ui.print_status(

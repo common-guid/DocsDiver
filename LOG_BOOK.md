@@ -60,10 +60,17 @@ Refactored the configuration system to allow specifying different models for `op
 ## Operation Optimization | 2026-02-01
 Implemented optimization to skip redundant worker execution during pre-chat audit.
 -   Added `ArtifactLoaderModel` to load existing artifacts instead of re-running agents.
--   Added `--coordinator-only` CLI flag to bypass Map Maker and Workers, running only the Coordinator to synthesize the final report from existing artifacts.
+-   Added `--coordinator-only` CLI flag to bypass Map Maker and Worker execution.
 -   Refactored `main.py` to support these optimization flags.
 
 ## Skip Workers Logic Fix | 2026-02-01
 Resolved two crashing bugs when using the skip-workers optimization (existing artifacts).
 - Fixed `ArtifactLoaderModel` to simulate a proper tool execution loop by returning a `FunctionCall` followed by a text response, preventing "malformed function call" errors.
 - Fixed `KeyError: Context variable not found: id` in the Google ADK by defining a prompt sanitization layer that replaces identifier-like curly braces (e.g., `{id}` -> `(id)`) in both Langfuse-fetched prompts and injected report content, preventing the ADK's template engine from attempting invalid substitutions.
+
+## Context Management & Scalability Strategy | 2026-02-01
+Implemented the "Notebook Strategy" to handle context overflow in worker agents.
+- Created `ContextManager` to manage session references.
+- Implemented `reset_context` tool to clear short-term memory while retaining a summary.
+- Implemented `append_to_notebook` and `read_notebook` tools for persistent storage of findings.
+- Updated Worker agents to use these tools and follow the batch processing strategy.

@@ -230,9 +230,9 @@ class OpenRouterModel(BaseLlm):
                             msg["content"] = "".join(content_parts)
                         if tool_calls:
                             msg["tool_calls"] = tool_calls
-                            # Ensure content is null if only tool calls (optional in some APIs, but safer)
+                            # Ensure content is empty string if only tool calls (null is standard, but some providers require string)
                             if "content" not in msg:
-                                msg["content"] = None
+                                msg["content"] = ""
                         if reasoning_details:
                             msg["reasoning_details"] = reasoning_details
                         messages.append(msg)

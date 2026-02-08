@@ -229,3 +229,17 @@ Migrated the hardcoded synthesis prompt in the coordinator to Langfuse Prompt Ma
 
 ### Next Steps & Continuity
 - Ensure the `report-synthesizer` prompt is correctly configured in the Langfuse production environment with expected variables.
+
+## Phase: Langfuse Prompt Linking | 2026-02-06
+Linked Langfuse managed prompts to OpenTelemetry traces for improved observability.
+
+### Tasks Completed
+- [x] Updated `sdaa/src/utils/prompt_manager.py` to retrieve raw prompt objects.
+- [x] Created `sdaa/src/utils/instrumented_gemini.py` to add prompt linking to Gemini traces.
+- [x] Updated `sdaa/src/utils/openrouter_model.py` to implement prompt linking and manual span creation.
+- [x] Updated `sdaa/src/core/model_factory.py` to use `InstrumentedGemini`.
+- [x] Updated `sdaa/src/agents/workers.py` and `coordinator.py` to pass prompt objects to models.
+- [x] Verified implementation with `tests/test_langfuse_linking_verification.py`.
+
+### Next Steps & Continuity
+- Monitor Langfuse dashboard to confirm prompts are correctly linked to generations.

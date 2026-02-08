@@ -82,3 +82,12 @@ Improved the Langfuse availability check in `sdaa/src/core/instrumentation.py`.
 
 ## Synthesis Prompt Langfuse Migration | 2026-02-05
 Migrated the hardcoded report synthesis prompt in `coordinator.py` to Langfuse, enabling dynamic updates to the final report structure without code changes.
+
+## Langfuse Prompt Linking | 2026-02-06
+Implemented linking of Langfuse managed prompts to OpenTelemetry traces.
+- Updated `PromptManager` to return prompt objects.
+- Created `InstrumentedGemini` to support Gemini prompt linking.
+- Updated `OpenRouterModel` to support prompt linking and manual tracing.
+- Updated `model_factory.py` to use `InstrumentedGemini`.
+- Updated agents to fetch prompt objects and set them on models.
+- Verified with unit tests.

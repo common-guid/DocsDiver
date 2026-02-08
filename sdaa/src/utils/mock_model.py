@@ -1,9 +1,14 @@
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Optional, Any
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
 
 class MockModel(BaseLlm):
     model: str = "mock-model"
+    _langfuse_prompt: Optional[Any] = None
+
+    def set_langfuse_prompt(self, prompt_obj: Any):
+        """Mock implementation of setting Langfuse prompt."""
+        self._langfuse_prompt = prompt_obj
 
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False

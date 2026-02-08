@@ -9,12 +9,19 @@ logger = logging.getLogger(__name__)
 class PromptManager:
     _instance = None
     _client: Optional[Langfuse] = None
+    _attempted_init = False
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(PromptManager, cls).__new__(cls)
-            cls._instance._initialize_client()
         return cls._instance
+
+    def _ensure_client(self):
+        """Lazy initialization of the Langfuse client."""
+        if self._attempted_init:
+            return
+        self._attempted_init = True
+        self._initialize_client()
 
     def _initialize_client(self):
         """Initialize the Langfuse client if API keys are present."""

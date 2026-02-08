@@ -51,6 +51,7 @@ class PromptManager:
         Returns:
             The Langfuse prompt object, or None if retrieval fails.
         """
+        self._ensure_client()
         if not self._client:
             logger.warning(f"Langfuse client not available. Cannot fetch prompt '{name}'.")
             return None

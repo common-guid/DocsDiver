@@ -91,3 +91,8 @@ Implemented linking of Langfuse managed prompts to OpenTelemetry traces.
 - Updated `model_factory.py` to use `InstrumentedGemini`.
 - Updated agents to fetch prompt objects and set them on models.
 - Verified with unit tests.
+
+## OpenRouter Content Field Fix | 2026-02-06
+Fixed a deserialization error (`untagged enum ModelInput`) with xAI/OpenRouter caused by sending `content: null` in assistant messages containing tool calls.
+- Updated `sdaa/src/utils/openrouter_model.py` to send `content: ""` (empty string) instead of `None` when `tool_calls` are present.
+- Added regression test `tests/test_openrouter_payload.py` to verify the fix.

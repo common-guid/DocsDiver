@@ -243,3 +243,14 @@ Linked Langfuse managed prompts to OpenTelemetry traces for improved observabili
 
 ### Next Steps & Continuity
 - Monitor Langfuse dashboard to confirm prompts are correctly linked to generations.
+
+## Phase: OpenRouter Content Field Fix | 2026-02-06
+Resolved `untagged enum ModelInput` deserialization error in OpenRouter/xAI when sending tool calls.
+
+### Tasks Completed
+- [x] Identified that some OpenRouter providers (specifically xAI) reject `content: null` when `tool_calls` are present.
+- [x] Updated `sdaa/src/utils/openrouter_model.py` to set `content` to `""` (empty string) instead of `None`.
+- [x] Added `tests/test_openrouter_payload.py` to verify the fix and prevent regressions.
+
+### Next Steps & Continuity
+- Validate other providers on OpenRouter to ensuring strict compatibility.

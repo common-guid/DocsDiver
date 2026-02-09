@@ -254,3 +254,15 @@ Resolved `untagged enum ModelInput` deserialization error in OpenRouter/xAI when
 
 ### Next Steps & Continuity
 - Validate other providers on OpenRouter to ensuring strict compatibility.
+
+## Phase: API Key Rotation | 2026-02-07
+Implemented API key rotation for OpenRouter and Gemini to handle rate limits automatically.
+
+### Tasks Completed
+- [x] Created `sdaa/src/core/key_rotator.py` to manage comma-separated keys from environment variables.
+- [x] Updated `OpenRouterModel` in `sdaa/src/utils/openrouter_model.py` to retry on `RateLimitError` by rotating keys and recreating the client.
+- [x] Refactored `InstrumentedGemini` in `sdaa/src/utils/instrumented_gemini.py` to wrap a private `_InnerGemini` class (composition), allowing client recreation on `TooManyRequests` (429) errors.
+- [x] Created `tests/test_key_rotation.py` to verify rotation logic and exhaustion handling for both providers.
+
+### Next Steps & Continuity
+- Monitor logs for "Rate limit hit" warnings to assess if the provided key pool is sufficient for the workload.

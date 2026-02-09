@@ -96,3 +96,10 @@ Implemented linking of Langfuse managed prompts to OpenTelemetry traces.
 Fixed a deserialization error (`untagged enum ModelInput`) with xAI/OpenRouter caused by sending `content: null` in assistant messages containing tool calls.
 - Updated `sdaa/src/utils/openrouter_model.py` to send `content: ""` (empty string) instead of `None` when `tool_calls` are present.
 - Added regression test `tests/test_openrouter_payload.py` to verify the fix.
+
+## API Key Rotation | 2026-02-07
+Implemented API key rotation for OpenRouter and Gemini.
+- Created `KeyRotator` to manage keys loaded from environment variables (comma-separated).
+- Updated `OpenRouterModel` to catch `RateLimitError` (HTTP 429), rotate the key, and retry.
+- Refactored `InstrumentedGemini` to use composition and catch `TooManyRequests` (HTTP 429), rotate the key, and retry.
+- Added comprehensive unit tests in `tests/test_key_rotation.py`.

@@ -4,9 +4,11 @@ import logging
 from typing import AsyncGenerator, Optional, List, Dict, Any
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
+from pydantic import PrivateAttr
+from sdaa.src.core.key_rotator import get_key_rotator
 
 try:
     from langfuse import LangfuseOtelSpanAttributes
@@ -24,13 +26,28 @@ class OpenRouterModel(BaseLlm):
     model: str
     client: AsyncOpenAI
     _langfuse_prompt: Optional[Any] = None
+    _rotator: Any = PrivateAttr()
+    _base_url: str = PrivateAttr()
 
     def __init__(self, model_name: str, base_url: str = "https://openrouter.ai/api/v1", api_key: Optional[str] = None):
-        client = AsyncOpenAI(
-            base_url=base_url,
-            api_key=api_key or os.getenv("OPENROUTER_API_KEY"),
-        )
+        rotator = get_key_rotator("openrouter")
+        # An explicit api_key overrides rotation for the first client.
+        client = AsyncOpenAI(base_url=base_url, api_key=api_key or rotator.get_current_key())
         super().__init__(model=model_name, client=client)
+        self._rotator = rotator
+        self._base_url = base_url
+
+    async def _create_with_rotation(self, **kwargs):
+        """Call chat.completions.create; on HTTP 429 rotate to the next key and retry once per key."""
+        max_attempts = max(1, self._rotator.get_key_count())
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return await self.client.chat.completions.create(**kwargs)
+            except RateLimitError as e:
+                if attempt >= max_attempts:
+                    raise
+                logger.warning(f"OpenRouter rate limit ({attempt}/{max_attempts}); rotating key. {e}")
+                self.client = AsyncOpenAI(base_url=self._base_url, api_key=self._rotator.rotate_key())
 
     def set_langfuse_prompt(self, prompt_obj: Any):
         """
@@ -289,7 +306,7 @@ class OpenRouterModel(BaseLlm):
                 if self.model == "x-ai/grok-4.1-fast":
                     extra_body = {"reasoning": {"enabled": True}}
 
-                response = await self.client.chat.completions.create(
+                response = await self._create_with_rotation(
                     model=self.model,
                     messages=messages,
                     stream=should_stream,

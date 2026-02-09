@@ -4,9 +4,11 @@ import logging
 from typing import AsyncGenerator, Optional, List, Dict, Any
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
+from pydantic import PrivateAttr
+from sdaa.src.core.key_rotator import get_key_rotator
 
 try:
     from langfuse import LangfuseOtelSpanAttributes
@@ -22,15 +24,23 @@ REASONING_MIME_TYPE = "application/x-reasoning-details"
 
 class OpenRouterModel(BaseLlm):
     model: str
-    client: AsyncOpenAI
+    client: Any # AsyncOpenAI
     _langfuse_prompt: Optional[Any] = None
+    _rotator: Any = PrivateAttr()
+    _base_url: str = PrivateAttr()
 
     def __init__(self, model_name: str, base_url: str = "https://openrouter.ai/api/v1", api_key: Optional[str] = None):
-        client = AsyncOpenAI(
-            base_url=base_url,
-            api_key=api_key or os.getenv("OPENROUTER_API_KEY"),
-        )
+        rotator = get_key_rotator("openrouter")
+
+        # If explicit api_key is provided, use it (override rotation), otherwise use rotator
+        if api_key:
+            client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+        else:
+            client = AsyncOpenAI(base_url=base_url, api_key=rotator.get_current_key())
+
         super().__init__(model=model_name, client=client)
+        self._rotator = rotator
+        self._base_url = base_url
 
     def set_langfuse_prompt(self, prompt_obj: Any):
         """
@@ -162,18 +172,7 @@ class OpenRouterModel(BaseLlm):
                                     pass
 
                             if hasattr(part, 'function_call') and part.function_call:
-                                # Map FunctionCall to OpenAI tool_calls
-                                # We need a tool_call_id. ADK might not persist it in the FunctionCall object directly
-                                # if it's just a data class. We might need to generate a deterministic one or see if it's there.
-                                # For OpenRouter/OpenAI, the tool usage flow is Strict: Assistant (tool_call) -> Tool (result).
-                                # If we don't have IDs in history, we might face issues.
-                                # Let's generate a mock ID if missing, but consistency is key.
-
                                 fc = part.function_call
-                                # Attempt to use specific ID if available, otherwise generate one
-                                # Note: google.genai types might not have 'id' on FunctionCall.
-                                # We'll check via getattr.
-                                # Fix for ID mismatch: use deterministic ID format matching ADK/generation
                                 tc_id = getattr(fc, 'id', None) or f"functions.{fc.name}:{len(tool_calls)}"
 
                                 tool_calls.append({
@@ -186,26 +185,10 @@ class OpenRouterModel(BaseLlm):
                                 })
 
                             if hasattr(part, 'function_response') and part.function_response:
-                                 # Map FunctionResponse to OpenAI tool message
                                  fr = part.function_response
-                                 # We need the id of the call this response is for.
-                                 # If ADK doesn't store it, we verify if OpenRouter accepts just matching names?
-                                 # No, OpenAI API requires tool_call_id.
-                                 # If we generated ID above based on position, we might tricky.
-                                 # HOWEVER, in standard ADK flow, the generic runner usually keeps history.
-
-                                 # Critical: We must find the ID.
-                                 # If we can't find it, we'll generate one and hope for loose validation or
-                                 # that we can infer it.
-                                 # For now, let's use the 'id' field if it exists.
                                  tc_id = getattr(fr, 'id', None)
 
-                                 # Fallback: if we just saw a tool call in the previous message, grab its ID?
-                                 # This implementation iterates sequentially.
-
                                  if not tc_id:
-                                     # Try to find the last assistant message with a tool call for this function
-                                     # This is a heuristic.
                                      for msg in reversed(messages):
                                          if msg.get("role") == "assistant" and "tool_calls" in msg:
                                              for tc in msg["tool_calls"]:
@@ -230,13 +213,8 @@ class OpenRouterModel(BaseLlm):
                             msg["content"] = "".join(content_parts)
                         if tool_calls:
                             msg["tool_calls"] = tool_calls
-                            # Ensure content is empty string if only tool calls (null is standard, but some providers require string)
                             if "content" not in msg:
                                 msg["content"] = ""
-                        # Note: xAI/Grok might fail if 'reasoning_details' is included in the message struct.
-                        # We omit it from the request payload to ensure compatibility.
-                        # if reasoning_details:
-                        #     msg["reasoning_details"] = reasoning_details
                         messages.append(msg)
 
                     elif role == "user":
@@ -248,79 +226,103 @@ class OpenRouterModel(BaseLlm):
             if llm_request.config and hasattr(llm_request.config, 'tools') and llm_request.config.tools:
                 openai_tools = self._convert_tools(llm_request.config.tools)
 
-            try:
-                # Note: stream=False simplifies tool handling.
-                should_stream = stream
-                if openai_tools:
-                    should_stream = False
+            from openai import NOT_GIVEN
 
-                from openai import NOT_GIVEN
+            extra_body = None
+            if self.model == "x-ai/grok-4.1-fast":
+                extra_body = {"reasoning": {"enabled": True}}
 
-                extra_body = None
-                if self.model == "x-ai/grok-4.1-fast":
-                    extra_body = {"reasoning": {"enabled": True}}
+            # RETRY LOGIC FOR KEY ROTATION
+            # We will try at most N times where N is number of keys (or 1 if no keys configured)
+            max_attempts = max(1, self._rotator.get_key_count())
+            attempt = 0
 
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    stream=should_stream,
-                    tools=openai_tools if openai_tools else NOT_GIVEN,
-                    extra_body=extra_body
-                )
+            while attempt < max_attempts:
+                try:
+                    should_stream = stream
+                    if openai_tools:
+                        should_stream = False
 
-                if should_stream:
-                    async for chunk in response:
-                        content_text = chunk.choices[0].delta.content or ""
-                        if content_text:
-                            content = types.Content(parts=[types.Part.from_text(text=content_text)])
-                            yield LlmResponse(content=content)
-                else:
-                    message = response.choices[0].message
-                    parts = []
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        stream=should_stream,
+                        tools=openai_tools if openai_tools else NOT_GIVEN,
+                        extra_body=extra_body
+                    )
 
-                    # Handle Tool Calls
-                    if message.tool_calls:
-                        for i, tool_call in enumerate(message.tool_calls):
-                            # Force ADK-compliant ID format: functions.{name}:{index}
-                            # This appears to be what the ADK runner expects or generates for responses.
-                            func_name = tool_call.function.name
-                            tc_id = f"functions.{func_name}:{i}"
-                            func_args = json.loads(tool_call.function.arguments)
-                            parts.append(
-                                types.Part(
-                                    function_call=types.FunctionCall(
-                                        name=func_name,
-                                        args=func_args,
-                                        id=tc_id
+                    if should_stream:
+                        async for chunk in response:
+                            content_text = chunk.choices[0].delta.content or ""
+                            if content_text:
+                                content = types.Content(parts=[types.Part.from_text(text=content_text)])
+                                yield LlmResponse(content=content)
+                    else:
+                        message = response.choices[0].message
+                        parts = []
+
+                        if message.tool_calls:
+                            for i, tool_call in enumerate(message.tool_calls):
+                                func_name = tool_call.function.name
+                                tc_id = f"functions.{func_name}:{i}"
+                                func_args = json.loads(tool_call.function.arguments)
+                                parts.append(
+                                    types.Part(
+                                        function_call=types.FunctionCall(
+                                            name=func_name,
+                                            args=func_args,
+                                            id=tc_id
+                                        )
                                     )
                                 )
-                            )
 
-                    # Handle Text
-                    if message.content:
-                        parts.append(types.Part.from_text(text=message.content))
+                        if message.content:
+                            parts.append(types.Part.from_text(text=message.content))
 
-                    # Handle Reasoning Details (if present)
-                    if hasattr(message, "reasoning_details") and message.reasoning_details:
-                        try:
-                            data_bytes = json.dumps(message.reasoning_details).encode("utf-8")
-                            blob = types.Blob(mime_type=REASONING_MIME_TYPE, data=data_bytes)
-                            parts.append(types.Part(inline_data=blob))
-                        except Exception:
-                            pass # Ignore serialization errors
+                        if hasattr(message, "reasoning_details") and message.reasoning_details:
+                            try:
+                                data_bytes = json.dumps(message.reasoning_details).encode("utf-8")
+                                blob = types.Blob(mime_type=REASONING_MIME_TYPE, data=data_bytes)
+                                parts.append(types.Part(inline_data=blob))
+                            except Exception:
+                                pass
 
-                    if not parts:
-                        # Empty response?
-                        parts.append(types.Part.from_text(text=""))
+                        if not parts:
+                            parts.append(types.Part.from_text(text=""))
 
-                    content = types.Content(parts=parts, role="model")
+                        content = types.Content(parts=parts, role="model")
+                        yield LlmResponse(content=content)
+
+                    # If success, break loop
+                    break
+
+                except RateLimitError as e:
+                    attempt += 1
+                    logger.warning(f"Rate limit hit for OpenRouter key. Attempt {attempt}/{max_attempts}. Error: {e}")
+
+                    if attempt >= max_attempts:
+                        span.record_exception(e)
+                        # Returning error message content as per original design?
+                        # Or raising? User requested "fail immediately" after all keys fail.
+                        # Original code returned error content. The user said "fail execution".
+                        # But returning error content might be handled by agent.
+                        # If I just raise, it bubbles up.
+                        # However, previous code did `yield LlmResponse` with error message.
+                        # If I want to "end execution", I should probably raise.
+                        # But if I follow the pattern, I should yield error.
+                        # Let's try to rotate first.
+                        raise e # Raise so we can see the failure or let upper layer handle.
+
+                    # Rotate key
+                    new_key = self._rotator.rotate_key()
+                    logger.info("Switching to next OpenRouter key.")
+                    self.client = AsyncOpenAI(base_url=self._base_url, api_key=new_key)
+                    # Loop continues
+
+                except Exception as e:
+                    # Non-retriable error (or at least not for key rotation)
+                    span.record_exception(e)
+                    error_msg = f"Error calling OpenRouter: {str(e)}"
+                    content = types.Content(parts=[types.Part.from_text(text=error_msg)])
                     yield LlmResponse(content=content)
-
-            except Exception as e:
-                # Handle error gracefully or re-raise
-                # Record exception in span
-                span.record_exception(e)
-                # Returning an error message as content for now
-                error_msg = f"Error calling OpenRouter: {str(e)}"
-                content = types.Content(parts=[types.Part.from_text(text=error_msg)])
-                yield LlmResponse(content=content)
+                    break

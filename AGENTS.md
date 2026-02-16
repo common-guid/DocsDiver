@@ -1,5 +1,5 @@
 
-1. the file EXECUTION_PLAN.md contains the development plan. This file will guide your operations and decisions on development
+1. the file IMPLEMENTATION_PLAN.md contains the development plan. This file will guide your operations and decisions on development
 2. the PROGRESS.md file records the projects progression. The file must be consulted upon any of the following events:
 	1. Upon beginning a new session always begin by checking the PROGRESS.md file
 	2. Prior to starting a new session, working on a feature request, or implementing a bug fix.

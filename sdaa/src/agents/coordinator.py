@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from sdaa.src.tools.file_ops import read_file
 from sdaa.src.tools.reporting import generate_final_report
+from sdaa.src.tools.notebook import read_notebook
 from sdaa.src.agents.workers import (
     create_permissions_agent,
     create_constraints_agent,
@@ -71,9 +72,31 @@ def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
         model = get_model_for_agent("coordinator", provider)
 
     def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
-        permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("permissions_report") or "").strip())
-        constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("constraints_report") or "").strip())
-        boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("boundaries_report") or "").strip())
+        # Check context state first (legacy/sequential mode)
+        p_rep = ctx.state.get("permissions_report")
+        c_rep = ctx.state.get("constraints_report")
+        b_rep = ctx.state.get("boundaries_report")
+
+        # If missing, try reading from notebooks (batch mode)
+        if not p_rep:
+            try:
+                p_rep = read_notebook("permissions")
+                if "empty or does not exist" in p_rep: p_rep = None
+            except: pass
+        if not c_rep:
+            try:
+                c_rep = read_notebook("constraints")
+                if "empty or does not exist" in c_rep: c_rep = None
+            except: pass
+        if not b_rep:
+            try:
+                b_rep = read_notebook("boundaries")
+                if "empty or does not exist" in b_rep: b_rep = None
+            except: pass
+
+        permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (p_rep or "").strip())
+        constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (c_rep or "").strip())
+        boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (b_rep or "").strip())
 
         if not permissions_report:
             permissions_report = "MISSING: permissions_report"
@@ -111,5 +134,5 @@ def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
         name="coordinator_psa",
         instruction=_build_synthesis_prompt,
         model=model,
-        tools=[generate_final_report]
+        tools=[generate_final_report, read_notebook]
     )

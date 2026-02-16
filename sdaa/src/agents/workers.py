@@ -7,6 +7,7 @@ from sdaa.src.tools.reporting import (
     report_invariance_findings,
     report_boundary_analysis
 )
+from sdaa.src.tools.notebook import append_to_notebook
 from sdaa.src.utils.prompt_manager import prompt_manager
 from sdaa.src.core.config_loader import config_loader
 
@@ -49,7 +50,7 @@ def create_permissions_agent(model=None):
         name="permissions_agent",
         instruction=prompt,
         model=model,
-        tools=[read_file, list_files, report_permissions_matrix],
+        tools=[read_file, list_files, report_permissions_matrix, append_to_notebook],
         output_key="permissions_report"
     )
 
@@ -85,7 +86,7 @@ def create_constraints_agent(model=None):
         name="constraints_agent",
         instruction=prompt,
         model=model,
-        tools=[read_file, list_files, report_invariance_findings],
+        tools=[read_file, list_files, report_invariance_findings, append_to_notebook],
         output_key="constraints_report"
     )
 
@@ -121,6 +122,6 @@ def create_boundaries_agent(model=None):
         name="boundaries_agent",
         instruction=prompt,
         model=model,
-        tools=[read_file, list_files, report_boundary_analysis],
+        tools=[read_file, list_files, report_boundary_analysis, append_to_notebook],
         output_key="boundaries_report"
     )

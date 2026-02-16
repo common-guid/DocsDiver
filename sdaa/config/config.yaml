@@ -4,6 +4,8 @@ system:
   output_dir: "output"
   reports_dir: "reports"
   artifacts_dir: "artifacts"
+  notebook_dir: "notebook"
+  batch_size: 5
 
 # Model Provider Configurations
 providers:

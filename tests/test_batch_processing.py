@@ -69,25 +69,30 @@ class TestBatchProcessing(unittest.IsolatedAsyncioTestCase):
         mock_runner_instance = MagicMock()
         mock_runner_class.return_value = mock_runner_instance
 
-        # Mock run_async to be an async generator
-        async def mock_run_async(*args, **kwargs):
+        # Mock run_async to be an AsyncMock that can also act as an async generator
+        async def mock_run_async_gen(*args, **kwargs):
             yield MagicMock(content="Mock response")
 
-        mock_runner_instance.run_async = mock_run_async
+        mock_runner_instance.run_async = AsyncMock(side_effect=mock_run_async_gen)
 
         # Mock UI
         mock_ui = MagicMock()
         mock_ui.stream_response = AsyncMock()
 
         # Run Batch Audit
-        # With batch_size=5 (default) and 6 files, expected 2 batches per agent.
-        # 3 Agents * 2 Batches = 6 runs + 1 Coordinator run = 7 runs total.
-
         await run_batch_audit("mock-provider", ui=mock_ui)
 
         # Verify calls
         # 3 workers * 2 batches = 6 calls to worker factories
         self.assertEqual(mock_permissions_factory.call_count, 2)
+        
+        # Verify that run_async was called with types.Content
+        from google.genai import types
+        call_args = mock_runner_instance.run_async.call_args_list[0]
+        new_message = call_args.kwargs.get('new_message')
+        self.assertIsInstance(new_message, types.Content)
+        self.assertTrue(len(new_message.parts) > 0)
+        self.assertTrue(hasattr(new_message.parts[0], 'text'))
         self.assertEqual(mock_constraints_factory.call_count, 2)
         self.assertEqual(mock_boundaries_factory.call_count, 2)
 

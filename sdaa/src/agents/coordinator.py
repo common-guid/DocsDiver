@@ -69,7 +69,7 @@ def create_coordinator_agent(provider: str = "openrouter", model=None):
 
 def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
     if model is None:
-        model = get_model_for_agent("coordinator", provider)
+        model = get_model_for_agent("report_synthesizer", provider)
 
     def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
         # Check context state first (legacy/sequential mode)
@@ -105,9 +105,12 @@ def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
         if not boundaries_report:
             boundaries_report = "MISSING: boundaries_report"
 
+        agent_config = config_loader.get("agents.report_synthesizer", {})
+        prompt_config = agent_config.get("prompt", {})
+        
         prompt_obj = prompt_manager.get_prompt_object(
-            name="report-synthesizer",
-            label="production"
+            name=prompt_config.get("name", "report-synthesizer"),
+            label=prompt_config.get("label", "production")
         )
 
         prompt = ""

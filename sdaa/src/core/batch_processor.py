@@ -12,6 +12,7 @@ from sdaa.src.agents.workers import (
 from sdaa.src.agents.coordinator import create_coordinator_synthesizer
 from sdaa.src.core.model_factory import get_model_for_agent
 from google.adk.runners import Runner
+from google.genai import types
 from google.adk.sessions import InMemorySessionService
 from google.adk.memory import InMemoryMemoryService
 
@@ -91,14 +92,15 @@ async def run_batch_audit(provider: str, ui=None, coordinator_only: bool = False
                     agent=agent,
                     session_service=session_service,
                     memory_service=memory_service,
-                    app_name="sdaa"
+                    app_name="sdaa",
+                    auto_create_session=True
                 )
 
                 try:
                     gen = runner.run_async(
                         user_id="batch_user",
                         session_id=f"sess_{agent_name}_{i}",
-                        new_message=batch_instruction
+                        new_message=types.Content(parts=[types.Part.from_text(text=batch_instruction)])
                     )
 
                     if ui:
@@ -126,14 +128,15 @@ async def run_batch_audit(provider: str, ui=None, coordinator_only: bool = False
         agent=coordinator,
         session_service=session_service,
         memory_service=memory_service,
-        app_name="sdaa"
+        app_name="sdaa",
+        auto_create_session=True
     )
 
     try:
         gen = runner.run_async(
             user_id="batch_user",
             session_id="sess_coordinator",
-            new_message="Generate the final report from the notebook findings."
+            new_message=types.Content(parts=[types.Part.from_text(text="Generate the final report from the notebook findings.")])
         )
 
         if ui:

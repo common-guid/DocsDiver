@@ -83,7 +83,7 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
     prompt = (
         "You are helping build a navigation map for a documentation corpus.\n"
         "Read the following content and:\n"
-        "1. Provide a one-sentence architectural summary.\n"
+        "1. Provide a one-sentence architectural summary. Do not wrap it in a markdown code block.\n"
         "2. Provide exactly three short, lowercase keyword tags that are descriptive of the file's subject. These keyword tags must be nouns or adjectives, and must not be duplicated.\n\n"
         "Return ONLY valid JSON of the form:\n"
         "{\n"

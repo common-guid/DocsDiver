@@ -138,7 +138,17 @@ class OpenRouterModel(BaseLlm):
             # Iterate through contents to build conversation history
             if isinstance(llm_request.contents, list):
                 for content in llm_request.contents:
-                    role = content.role
+                    # Robustness fix: Handle if content is just a string (e.g. from some Runner.run_async calls)
+                    if isinstance(content, str):
+                        messages.append({"role": "user", "content": content})
+                        continue
+
+                    # Otherwise, treat as an object with potential .role and .parts attributes
+                    try:
+                        role = getattr(content, 'role', 'user')
+                    except Exception:
+                        role = "user"
+
                     if role == "model":
                         role = "assistant"
                     elif role == "tool":

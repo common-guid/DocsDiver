@@ -1,9 +1,11 @@
 system:
   toc_filename: "ToC.json"
-  docs_root: "./docs-for-testing"
-  output_dir: "output"
-  reports_dir: "reports"
-  artifacts_dir: "artifacts"
+  docs_root: "/home/guid/engagements/hex.tech/hex.tech_docs"
+  output_dir: "/home/guid/engagements/hex.tech/DocsDiver/notebook_context_management/output"
+  reports_dir: "/home/guid/engagements/hex.tech/DocsDiver/notebook_context_management/reports"
+  artifacts_dir: "/home/guid/engagements/hex.tech/DocsDiver/notebook_context_management/artifacts"
+  notebook_dir: "/home/guid/engagements/hex.tech/DocsDiver/notebook_context_management/notebook"
+  batch_size: 5
 
 # Model Provider Configurations
 providers:
@@ -24,22 +26,28 @@ agents:
     gemini: "gemini-2.5-pro"
     prompt:
       name: "coordinator-agent"
-      label: "production"
+      label: "latest"
   permissions_agent:
     openrouter: "x-ai/grok-4.1-fast"
     gemini: "gemini-2.5-flash"
     prompt:
       name: "permissions-agent"
-      label: "production"
+      label: "latest"
   constraints_agent:
     openrouter: "x-ai/grok-4.1-fast"
     gemini: "gemini-2.5-flash"
     prompt:
       name: "negative-constraints-agent"
-      label: "production"
+      label: "latest"
   boundaries_agent:
     openrouter: "x-ai/grok-4.1-fast"
     gemini: "gemini-2.5-flash"
     prompt:
       name: "security-boundaries-agent"
-      label: "production"
+      label: "latest"
+  report_synthesizer:
+    openrouter: "x-ai/grok-4.1-fast"
+    gemini: "gemini-2.5-pro"
+    prompt:
+      name: "report-synthesizer"
+      label: "latest"

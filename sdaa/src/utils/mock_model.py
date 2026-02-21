@@ -155,7 +155,7 @@ Analyzed files: billing.md
         elif "architectural summary" in full_text and not last_was_function_response:
              # Map Maker - checking this LAST because other prompts might contain this phrase
              # It acts as a fallback or specific check if no other role matched
-             response_text = '{"summary": "This is a mock summary of the architectural component."}'
+             response_text = '{"summary": "This is a mock summary of the architectural component.", "tags": ["mock", "test", "doc"]}'
 
         # Wrap response in types.Content
         if tool_call_part:

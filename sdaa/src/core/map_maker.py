@@ -71,8 +71,8 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
 
     The model is prompted to return JSON of the form:
     {"summary": "...", "tags": ["tag1", "tag2", "tag3"]}.
-    If the response is not valid JSON, we fall back to using the raw
-    text as the summary and derive tags from the file path.
+    If the response is not valid JSON, we attempt to extract JSON from markdown
+    code blocks before falling back to using the raw text as the summary.
     """
     try:
         content = read_file(filepath)
@@ -85,7 +85,7 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
         "Read the following content and:\n"
         "1. Provide a one-sentence architectural summary.\n"
         "2. Provide exactly three short, lowercase keyword tags that are descriptive of the file's subject. These keyword tags must be nouns or adjectives, and must not be duplicated.\n\n"
-        "Return ONLY valid JSON of the form:\n"
+        "Return ONLY valid JSON. Do not include any other text before or after the JSON.\n"
         "{\n"
         "  \"summary\": \"<one sentence>\",\n"
         "  \"tags\": [\"tag1\", \"tag2\", \"tag3\"]\n"
@@ -114,11 +114,17 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
     summary: str
     tags: List[str]
 
-    # The mock model returns JSON-like string for 'architectural summary'.
-    # Real models are instructed to return JSON with summary and tags.
+    # Attempt to parse as JSON.
+    # Some models might wrap JSON in markdown blocks like ```json ... ```.
+    # We prioritize content within code blocks if they exist.
+    clean_text = response_text.strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", clean_text, re.DOTALL)
+    if match:
+        clean_text = match.group(1).strip()
+
     try:
-        data = json.loads(response_text)
-        summary = str(data.get("summary", "")).strip() or response_text.strip()
+        data = json.loads(clean_text)
+        summary = str(data.get("summary", "")).strip() or clean_text
         tags = _normalize_tags(data.get("tags"), filepath)
     except json.JSONDecodeError:
         summary = response_text.strip() or "No summary available."

@@ -136,92 +136,113 @@ class OpenRouterModel(BaseLlm):
                     messages.append({"role": "system", "content": sys_text})
 
             # Iterate through contents to build conversation history
-            if isinstance(llm_request.contents, list):
-                for content in llm_request.contents:
-                    role = content.role
+            # Use a more general check than isinstance(..., list)
+            contents = llm_request.contents
+            if contents and hasattr(contents, '__iter__'):
+                for content in contents:
+                    # Robust role extraction
+                    role = None
+                    if hasattr(content, 'role'):
+                        role = content.role
+                    elif isinstance(content, dict):
+                        role = content.get('role')
+
                     if role == "model":
                         role = "assistant"
                     elif role == "tool":
                         role = "tool"
-                    else:
+                    elif not role:
                         role = "user"
 
                     content_parts = []
                     tool_calls = []
                     reasoning_details = None
 
+                    # Robust parts extraction
+                    parts = []
                     if hasattr(content, 'parts'):
-                        for part in content.parts:
-                            if part.text:
+                        parts = content.parts
+                    elif isinstance(content, dict):
+                        parts = content.get('parts', [])
+
+                    if parts:
+                        for part in parts:
+                            if hasattr(part, 'text') and part.text:
                                 content_parts.append(part.text)
+                            elif isinstance(part, dict) and part.get('text'):
+                                content_parts.append(part.get('text'))
                             
-                            if part.inline_data and part.inline_data.mime_type == REASONING_MIME_TYPE:
-                                try:
-                                    reasoning_details = json.loads(part.inline_data.data.decode("utf-8"))
-                                except Exception:
-                                    pass
+                            # Reasoning details
+                            inline_data = None
+                            if hasattr(part, 'inline_data'):
+                                inline_data = part.inline_data
+                            elif isinstance(part, dict):
+                                inline_data = part.get('inline_data')
 
-                            if hasattr(part, 'function_call') and part.function_call:
-                                # Map FunctionCall to OpenAI tool_calls
-                                # We need a tool_call_id. ADK might not persist it in the FunctionCall object directly
-                                # if it's just a data class. We might need to generate a deterministic one or see if it's there.
-                                # For OpenRouter/OpenAI, the tool usage flow is Strict: Assistant (tool_call) -> Tool (result).
-                                # If we don't have IDs in history, we might face issues.
-                                # Let's generate a mock ID if missing, but consistency is key.
+                            if inline_data:
+                                mime_type = getattr(inline_data, 'mime_type', None) or (inline_data.get('mime_type') if isinstance(inline_data, dict) else None)
+                                if mime_type == REASONING_MIME_TYPE:
+                                    data = getattr(inline_data, 'data', None) or (inline_data.get('data') if isinstance(inline_data, dict) else None)
+                                    if data:
+                                        try:
+                                            if isinstance(data, bytes):
+                                                reasoning_details = json.loads(data.decode("utf-8"))
+                                            else:
+                                                reasoning_details = json.loads(data)
+                                        except Exception:
+                                            pass
 
+                            # Function call
+                            fc = None
+                            if hasattr(part, 'function_call'):
                                 fc = part.function_call
-                                # Attempt to use specific ID if available, otherwise generate one
-                                # Note: google.genai types might not have 'id' on FunctionCall.
-                                # We'll check via getattr.
-                                # Fix for ID mismatch: use deterministic ID format matching ADK/generation
-                                tc_id = getattr(fc, 'id', None) or f"functions.{fc.name}:{len(tool_calls)}"
+                            elif isinstance(part, dict):
+                                fc = part.get('function_call')
+
+                            if fc:
+                                name = getattr(fc, 'name', None) or (fc.get('name') if isinstance(fc, dict) else None)
+                                args = getattr(fc, 'args', None) or (fc.get('args') if isinstance(fc, dict) else None)
+                                tc_id = getattr(fc, 'id', None) or (fc.get('id') if isinstance(fc, dict) else None) or f"functions.{name}:{len(tool_calls)}"
 
                                 tool_calls.append({
                                     "id": tc_id,
                                     "type": "function",
                                     "function": {
-                                        "name": fc.name,
-                                        "arguments": json.dumps(fc.args) if fc.args else "{}"
+                                        "name": name,
+                                        "arguments": json.dumps(args) if args else "{}"
                                     }
                                 })
 
-                            if hasattr(part, 'function_response') and part.function_response:
-                                 # Map FunctionResponse to OpenAI tool message
-                                 fr = part.function_response
-                                 # We need the id of the call this response is for.
-                                 # If ADK doesn't store it, we verify if OpenRouter accepts just matching names?
-                                 # No, OpenAI API requires tool_call_id.
-                                 # If we generated ID above based on position, we might tricky.
-                                 # HOWEVER, in standard ADK flow, the generic runner usually keeps history.
+                            # Function response
+                            fr = None
+                            if hasattr(part, 'function_response'):
+                                fr = part.function_response
+                            elif isinstance(part, dict):
+                                fr = part.get('function_response')
 
-                                 # Critical: We must find the ID.
-                                 # If we can't find it, we'll generate one and hope for loose validation or
-                                 # that we can infer it.
-                                 # For now, let's use the 'id' field if it exists.
-                                 tc_id = getattr(fr, 'id', None)
+                            if fr:
+                                name = getattr(fr, 'name', None) or (fr.get('name') if isinstance(fr, dict) else None)
+                                response_val = getattr(fr, 'response', None) or (fr.get('response') if isinstance(fr, dict) else None)
+                                tc_id = getattr(fr, 'id', None) or (fr.get('id') if isinstance(fr, dict) else None)
 
-                                 # Fallback: if we just saw a tool call in the previous message, grab its ID?
-                                 # This implementation iterates sequentially.
+                                if not tc_id:
+                                    # Try to find the last assistant message with a tool call for this function
+                                    for msg in reversed(messages):
+                                        if msg.get("role") == "assistant" and "tool_calls" in msg:
+                                            for tc in msg["tool_calls"]:
+                                                if tc["function"]["name"] == name:
+                                                    tc_id = tc["id"]
+                                                    break
+                                        if tc_id: break
 
-                                 if not tc_id:
-                                     # Try to find the last assistant message with a tool call for this function
-                                     # This is a heuristic.
-                                     for msg in reversed(messages):
-                                         if msg.get("role") == "assistant" and "tool_calls" in msg:
-                                             for tc in msg["tool_calls"]:
-                                                 if tc["function"]["name"] == fr.name:
-                                                     tc_id = tc["id"]
-                                                     break
-                                         if tc_id: break
+                                if not tc_id:
+                                    tc_id = f"call_unknown_{name}"
 
-                                 if not tc_id:
-                                     tc_id = f"call_unknown_{fr.name}"
-
-                                 messages.append({
-                                     "role": "tool",
-                                     "tool_call_id": tc_id,
-                                     "content": json.dumps(fr.response) if fr.response else ""
-                                 })
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc_id,
+                                    "content": json.dumps(response_val) if response_val else ""
+                                })
 
                     # Construct message
                     if role == "assistant":
@@ -230,19 +251,24 @@ class OpenRouterModel(BaseLlm):
                             msg["content"] = "".join(content_parts)
                         if tool_calls:
                             msg["tool_calls"] = tool_calls
-                            # Ensure content is empty string if only tool calls (null is standard, but some providers require string)
                             if "content" not in msg:
                                 msg["content"] = ""
-                        # Note: xAI/Grok might fail if 'reasoning_details' is included in the message struct.
-                        # We omit it from the request payload to ensure compatibility.
-                        # if reasoning_details:
-                        #     msg["reasoning_details"] = reasoning_details
                         messages.append(msg)
 
                     elif role == "user":
                         if content_parts:
                             messages.append({"role": "user", "content": "".join(content_parts)})
             
+            # Set input messages attribute for OpenInference
+            try:
+                # Format for OpenInference: JSON string or list of dicts
+                span.set_attribute("llm.input_messages", json.dumps(messages))
+            except Exception:
+                pass
+
+            if not messages:
+                logger.warning("No messages to send to OpenRouter. Input contents might be improperly formatted.")
+
             # Process Tools
             openai_tools = None
             if llm_request.config and hasattr(llm_request.config, 'tools') and llm_request.config.tools:
@@ -269,6 +295,7 @@ class OpenRouterModel(BaseLlm):
                 )
 
                 if should_stream:
+                    # TODO: Properly instrument streaming output if needed
                     async for chunk in response:
                         content_text = chunk.choices[0].delta.content or ""
                         if content_text:
@@ -278,11 +305,28 @@ class OpenRouterModel(BaseLlm):
                     message = response.choices[0].message
                     parts = []
 
+                    # Set output messages attribute for OpenInference
+                    try:
+                        output_msg = {"role": "assistant", "content": message.content}
+                        if message.tool_calls:
+                             output_msg["tool_calls"] = [
+                                 {
+                                     "id": tc.id,
+                                     "type": "function",
+                                     "function": {
+                                         "name": tc.function.name,
+                                         "arguments": tc.function.arguments
+                                     }
+                                 } for tc in message.tool_calls
+                             ]
+                        span.set_attribute("llm.output_messages", json.dumps([output_msg]))
+                    except Exception:
+                        pass
+
                     # Handle Tool Calls
                     if message.tool_calls:
                         for i, tool_call in enumerate(message.tool_calls):
                             # Force ADK-compliant ID format: functions.{name}:{index}
-                            # This appears to be what the ADK runner expects or generates for responses.
                             func_name = tool_call.function.name
                             tc_id = f"functions.{func_name}:{i}"
                             func_args = json.loads(tool_call.function.arguments)

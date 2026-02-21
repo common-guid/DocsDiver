@@ -163,7 +163,9 @@ async def generate_toc(model=None):
         # Using MockModel as fallback
         model = MockModel(model="mock-model")
 
-    for file in file_list:
+    total_files = len(file_list)
+    for i, file in enumerate(file_list, 1):
+        print(f"[{i}/{total_files}] Processing {file}...")
         summary, tags = await _summarize_file(file, model)
         toc_entries.append({"path": file, "summary": summary, "tags": tags})
 

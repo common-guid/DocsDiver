@@ -96,3 +96,9 @@ Implemented linking of Langfuse managed prompts to OpenTelemetry traces.
 Fixed a deserialization error (`untagged enum ModelInput`) with xAI/OpenRouter caused by sending `content: null` in assistant messages containing tool calls.
 - Updated `sdaa/src/utils/openrouter_model.py` to send `content: ""` (empty string) instead of `None` when `tool_calls` are present.
 - Added regression test `tests/test_openrouter_payload.py` to verify the fix.
+
+## Project Description Document | 2026-06-28
+Created a comprehensive technical description document detailing the architecture, components, features, and operation of DocsDiver, and saved it in the project root directory as project_description.md.
+
+## Project Retrospective & Review Report | 2026-06-28
+Conducted a thorough retrospective review of the repo history and design choices, outlining 3 ways the development process could have been executed better, and saved it in the project root directory as retrospective_report.md.

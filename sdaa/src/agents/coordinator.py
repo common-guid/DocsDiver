@@ -1,40 +1,17 @@
-from google.adk.agents import LlmAgent
+from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
 import re
+import os
 import logging
-from google.adk.agents.readonly_context import ReadonlyContext
-from sdaa.src.utils.mock_model import MockModel
-
-# Configure logging
-logger = logging.getLogger(__name__)
-
+from typing import AsyncGenerator
 from sdaa.src.tools.file_ops import read_file
 from sdaa.src.tools.reporting import generate_final_report
-from sdaa.src.agents.workers import (
-    create_permissions_agent,
-    create_constraints_agent,
-    create_boundaries_agent
-)
-from sdaa.src.core.model_factory import get_model_for_agent
 from sdaa.src.utils.prompt_manager import prompt_manager
 from sdaa.src.core.config_loader import config_loader
 
-
-# SUPERVISOR_PROMPT is now managed via Langfuse (coordinator-agent)
-
-def create_coordinator_agent(provider: str = "openrouter", model=None):
-    if model is None:
-        model = get_model_for_agent("coordinator", provider)
-
-    # Instantiate models for sub-agents based on the selected provider
-    perm_model = get_model_for_agent("permissions_agent", provider)
-    const_model = get_model_for_agent("constraints_agent", provider)
-    bound_model = get_model_for_agent("boundaries_agent", provider)
-
-    permissions_agent = create_permissions_agent(model=perm_model)
-    constraints_agent = create_constraints_agent(model=const_model)
-    boundaries_agent = create_boundaries_agent(model=bound_model)
+logger = logging.getLogger(__name__)
 
 
+def create_coordinator_agent(provider: str = "gemini", model_name: str = None):
     agent_config = config_loader.get("agents.coordinator", {})
     prompt_config = agent_config.get("prompt", {})
     
@@ -47,40 +24,62 @@ def create_coordinator_agent(provider: str = "openrouter", model=None):
     if prompt_obj:
         try:
             prompt = prompt_obj.compile()
-            if hasattr(model, "set_langfuse_prompt"):
-                model.set_langfuse_prompt(prompt_obj)
         except Exception:
             pass
 
     if not prompt:
         prompt = "Error: Could not fetch 'coordinator-agent' prompt from Langfuse."
 
-    # Sanitize identifiers in braces in the fetched prompt
+    # Sanitize identifiers in braces
     prompt = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", prompt)
 
-    return LlmAgent(
-        name="coordinator_psa",
-        instruction=prompt,
-        model=model,
-        tools=[read_file, generate_final_report],
-        sub_agents=[permissions_agent, constraints_agent, boundaries_agent]
-    )
+    return {
+        "prompt": prompt,
+        "tools": [read_file, generate_final_report]
+    }
 
-def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
-    if model is None:
-        model = get_model_for_agent("coordinator", provider)
 
-    def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
-        permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("permissions_report") or "").strip())
-        constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("constraints_report") or "").strip())
-        boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("boundaries_report") or "").strip())
+class AgyCoordinatorSynthesizer:
+    def __init__(self, prompt_generator, tools: list):
+        self.prompt_generator = prompt_generator
+        self.tools = tools
 
-        if not permissions_report:
-            permissions_report = "MISSING: permissions_report"
-        if not constraints_report:
-            constraints_report = "MISSING: constraints_report"
-        if not boundaries_report:
-            boundaries_report = "MISSING: boundaries_report"
+    async def run_async(self, model_name: str = None) -> AsyncGenerator[str, None]:
+        system_instructions = self.prompt_generator()
+        
+        if model_name == "mock" or model_name == "mock-model":
+            for t in self.tools:
+                if t.__name__ == "generate_final_report":
+                    t("Mock Final Threat Model Report")
+            yield "\n[Mock] Synthesis complete.\n"
+            return
+            
+        config = LocalAgentConfig(
+            system_instructions=system_instructions,
+            capabilities=CapabilitiesConfig(),
+            tools=self.tools,
+            model=model_name
+        )
+        async with Agent(config) as agent:
+            response = await agent.chat("Generate the final Security Threat Model report using the worker findings.")
+            async for token in response:
+                yield token
+
+
+def create_coordinator_synthesizer(provider: str = "gemini", model_name: str = None):
+    def _build_synthesis_prompt() -> str:
+        artifacts_dir = config_loader.get_artifacts_dir()
+        
+        def read_report(filename):
+            path = os.path.join(artifacts_dir, filename)
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    return f.read()
+            return "MISSING: " + filename
+
+        permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", read_report("permissions_agent.md").strip())
+        constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", read_report("constraints_agent.md").strip())
+        boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", read_report("boundaries_agent.md").strip())
 
         prompt_obj = prompt_manager.get_prompt_object(
             name="report-synthesizer",
@@ -95,8 +94,6 @@ def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
                     constraints_report=constraints_report,
                     boundaries_report=boundaries_report
                 )
-                if hasattr(model, "set_langfuse_prompt"):
-                    model.set_langfuse_prompt(prompt_obj)
             except Exception as e:
                 logger.error(f"Error compiling synthesis prompt: {e}")
                 pass
@@ -107,9 +104,7 @@ def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
 
         return prompt
 
-    return LlmAgent(
-        name="coordinator_psa",
-        instruction=_build_synthesis_prompt,
-        model=model,
+    return AgyCoordinatorSynthesizer(
+        prompt_generator=_build_synthesis_prompt,
         tools=[generate_final_report]
     )

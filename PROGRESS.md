@@ -254,3 +254,21 @@ Resolved `untagged enum ModelInput` deserialization error in OpenRouter/xAI when
 
 ### Next Steps & Continuity
 - Validate other providers on OpenRouter to ensuring strict compatibility.
+
+## Phase: Antigravity SDK Migration | 2026-07-01
+Migrated the project engine from Google ADK to the Antigravity Python SDK to leverage local AI Pro credentials.
+
+### Tasks Completed
+- [x] Swapped `google-adk` dependency for `google-antigravity` in `requirements.txt`.
+- [x] Created a new `.venv` environment and installed the updated dependencies.
+- [x] Refactored `sdaa/src/core/map_maker.py` to use `google.antigravity.Agent` and `LocalAgentConfig`, dropping the ADK model wrappers and `LlmRequest` structures.
+- [x] Refactored `sdaa/src/agents/workers.py` to return custom `AgyWorker` instances that run sequentially on the Antigravity SDK engine.
+- [x] Refactored `sdaa/src/agents/coordinator.py` to return the coordinator instructions configuration and a custom `AgyCoordinatorSynthesizer` for sequential report compilation.
+- [x] Overwrote `main.py` to utilize the new sequential pre-chat audit flow and run the interactive coordinator chat session directly through `google.antigravity.Agent`, removing over 50 lines of ADK session and memory boilerplate.
+- [x] Cleaned up obsolete test files that relied on `google.adk` or `openrouter` (OpenRouter logic is now bypassed as AGY binary executes all calls natively).
+- [x] Rewrote `tests/test_factory_and_integration.py` to mock `google.antigravity.Agent` and verify agent setup and CLI argument routing.
+- [x] Created mock documentation files in `docs-for-testing/` and verified that the updated test suite passes entirely (14/14 tests passing).
+
+### Next Steps & Continuity
+- Run the interactive chat CLI (`python main.py`) with the new Antigravity local backend.
+- Double-check how variables like `useG1Credits` are handled in the local `settings.json` to ensure AI Pro subscription credits are actively being consumed.

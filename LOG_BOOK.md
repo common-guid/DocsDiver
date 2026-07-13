@@ -102,3 +102,6 @@ Created a comprehensive technical description document detailing the architectur
 
 ## Project Retrospective & Review Report | 2026-06-28
 Conducted a thorough retrospective review of the repo history and design choices, outlining 3 ways the development process could have been executed better, and saved it in the project root directory as retrospective_report.md.
+
+## Antigravity SDK Migration | 2026-07-01
+Migrated the entire DocsDiver codebase from the Google Agent Development Kit (ADK) base to the Antigravity Python SDK, routing all agent executions locally through the Antigravity CLI's engine to utilize the user's AI Pro subscription. Refactored main.py, workers.py, and coordinator.py, cleaned up obsolete ADK dependencies and tests, and verified the new architecture using a local virtual environment.

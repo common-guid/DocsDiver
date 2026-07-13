@@ -72,7 +72,9 @@ class RichUI:
         if not self.use_rich:
             print(f"{title}> ", end="", flush=True)
             async for event in event_stream:
-                if event.content:
+                if isinstance(event, str):
+                    print(event, end="", flush=True)
+                elif event.content:
                     if hasattr(event.content, 'parts'):
                         for part in event.content.parts:
                             if part.text:
@@ -97,7 +99,9 @@ class RichUI:
         with Live(panel, console=self.console, refresh_per_second=10) as live:
             async for event in event_stream:
                 chunk = ""
-                if event.content:
+                if isinstance(event, str):
+                    chunk += event
+                elif event.content:
                     if hasattr(event.content, 'parts'):
                         for part in event.content.parts:
                             if part.text:
@@ -124,3 +128,4 @@ class RichUI:
                 border_style="panel.border",
                 subtitle=""
             ))
+

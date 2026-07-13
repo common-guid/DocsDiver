@@ -15,7 +15,7 @@ async def test_generate_toc():
         os.remove(toc_path)
 
     # Run async function
-    await generate_toc()
+    await generate_toc(model_name="mock")
 
     # Check ToC.json exists at the resolved output path
     assert os.path.exists(toc_path)

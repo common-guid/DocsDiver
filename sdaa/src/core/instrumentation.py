@@ -6,7 +6,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+
 from langsmith.integrations.otel import configure as configure_langsmith
 import requests
 
@@ -146,9 +146,6 @@ def setup_instrumentation():
         provider.add_span_processor(TaggingSpanProcessor())
         trace.set_tracer_provider(provider)
 
-        # Initialize Google ADK Instrumentation
-        # This will auto-instrument the Google ADK classes to emit traces
-        GoogleADKInstrumentor().instrument()
         print("Observability instrumentation complete.")
         return True
     else:

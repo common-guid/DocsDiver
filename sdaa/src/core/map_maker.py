@@ -5,9 +5,7 @@ import re
 from typing import List, Tuple
 from sdaa.src.tools.file_ops import list_files, read_file
 from sdaa.src.core.config_loader import config_loader
-from sdaa.src.utils.mock_model import MockModel
-from google.adk.models import LlmRequest
-from google.genai import types
+from google.antigravity import Agent, LocalAgentConfig
 
 
 def _derive_tags_from_path(filepath: str) -> List[str]:
@@ -66,7 +64,7 @@ def _normalize_tags(raw_tags, filepath: str) -> List[str]:
     return tags
 
 
-async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
+async def _summarize_file(filepath: str, model_name: str = None) -> Tuple[str, List[str]]:
     """Generate a summary and tags for a single file.
 
     The model is prompted to return JSON of the form:
@@ -79,6 +77,9 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
     except Exception as e:
         # On read error, encode message as summary and derive tags from path
         return f"Error reading file: {e}", _derive_tags_from_path(filepath)
+
+    if model_name == "mock" or model_name == "mock-model":
+        return f"Mock architectural summary for {filepath}", _derive_tags_from_path(filepath)
 
     prompt = (
         "You are helping build a navigation map for a documentation corpus.\n"
@@ -93,23 +94,16 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
         f"Content:\n{content}"
     )
 
-    # Determine model name dynamically
-    model_name = getattr(model, "model", None)
-    if not model_name:
-         model_name = getattr(model, "model_name", "mock-model")
-
-    # Create request
-    request = LlmRequest(
-        model=model_name,
-        contents=[types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
+    config = LocalAgentConfig(
+        system_instructions="You are helping build a navigation map for a documentation corpus. Return ONLY valid JSON.",
+        model=model_name
     )
 
     response_text = ""
-    async for response in model.generate_content_async(request):
-        if response.content and response.content.parts:
-            for part in response.content.parts:
-                if part.text:
-                    response_text += part.text
+    async with Agent(config) as agent:
+        response = await agent.chat(prompt)
+        async for token in response:
+            response_text += token
 
     summary: str
     tags: List[str]
@@ -132,7 +126,7 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
 
     return summary, tags
 
-async def generate_toc(model=None):
+async def generate_toc(model_name: str = None):
     toc_filename = config_loader.get("system.toc_filename", "ToC.json")
     output_dir = config_loader.get_output_dir()
     toc_path = os.path.join(output_dir, toc_filename)
@@ -158,15 +152,10 @@ async def generate_toc(model=None):
 
     toc_entries = []
 
-    # Initialize model
-    if model is None:
-        # Using MockModel as fallback
-        model = MockModel(model="mock-model")
-
     total_files = len(file_list)
     for i, file in enumerate(file_list, 1):
         print(f"[{i}/{total_files}] Processing {file}...")
-        summary, tags = await _summarize_file(file, model)
+        summary, tags = await _summarize_file(file, model_name)
         toc_entries.append({"path": file, "summary": summary, "tags": tags})
 
     toc_data = {"files": toc_entries}

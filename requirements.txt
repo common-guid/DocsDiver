@@ -1,12 +1,10 @@
-google-adk
+google-antigravity
 pydantic
 pyyaml
 python-dotenv
 pytest
 langfuse
-langfuse
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
-openinference-instrumentation-google-adk
 langsmith
 rich

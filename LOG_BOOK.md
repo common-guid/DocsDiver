@@ -103,3 +103,23 @@ Implemented API key rotation for OpenRouter and Gemini.
 - Updated `OpenRouterModel` to catch `RateLimitError` (HTTP 429), rotate the key, and retry.
 - Refactored `InstrumentedGemini` to use composition and catch `TooManyRequests` (HTTP 429), rotate the key, and retry.
 - Added comprehensive unit tests in `tests/test_key_rotation.py`.
+
+## Docs Directory Creation | 2026-07-28
+Created the `docs` directory in the project root to store project documentation.
+
+## Architecture & Internals Documentation | 2026-07-28
+Created `docs/ARCHITECTURE_AND_DATA_FLOW.md` and `docs/INTERNALS_AND_DESIGN_PATTERNS.md` detailing the system topology, execution phases, design patterns, and observability infrastructure.
+
+## Configuration & Multi-Model Documentation | 2026-07-28
+Created `docs/CONFIGURATION_GUIDE.md` detailing environment variables, config.yaml system settings, per-agent model configurations, prompt bindings, CLI flags, and setup recipes.
+
+## Extending Agents Documentation | 2026-07-28
+Created `docs/EXTENDING_AGENTS.md` providing a step-by-step developer tutorial for adding new worker agents, wiring reporting tools, linking dynamic prompts, and registering with the supervisor.
+
+## Observability & Prompt Management Documentation | 2026-07-28
+Created `docs/OBSERVABILITY_AND_PROMPTS.md` covering unified OpenTelemetry tracing (Langfuse + LangSmith), health-check fallback guards, dynamic prompt fetching, ADK template sanitization, log warning suppression, and validation scripts.
+
+
+
+
+

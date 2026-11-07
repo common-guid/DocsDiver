@@ -253,6 +253,8 @@ class OpenRouterModel(BaseLlm):
                             msg["tool_calls"] = tool_calls
                             if "content" not in msg:
                                 msg["content"] = ""
+                        if reasoning_details:
+                            msg["reasoning_details"] = reasoning_details
                         messages.append(msg)
 
                     elif role == "user":

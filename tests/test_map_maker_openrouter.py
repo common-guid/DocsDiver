@@ -57,8 +57,8 @@ async def test_openrouter_model_empty_contents():
     model = OpenRouterModel(model_name="test-model", api_key="test-key")
     model.client = mock_client
     
-    # Test case: Contents as None
-    request = LlmRequest(model="test-model", contents=None)
+    # Test case: Contents as empty (newer ADK/pydantic requires a list, not None)
+    request = LlmRequest(model="test-model", contents=[])
     
     # Should not crash, but messages will be empty (and logger will warn)
     async for response in model.generate_content_async(request):

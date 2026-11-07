@@ -121,6 +121,7 @@ async def main():
     parser.add_argument("--toc-only", action="store_true", help="Run Map Maker only and exit before starting the coordinator")
     parser.add_argument("--coordinator-only", action="store_true", help="Run only the coordinator using existing artifacts, bypassing workers and Map Maker")
     parser.add_argument("--no-rich", action="store_true", help="Disable Rich terminal UI and use plain text output")
+    parser.add_argument("--headless", action="store_true", help="Run non-interactively: Map Maker + Pre-chat Audit, write all outputs, then exit. Exit code 0 on success, 1 on failure (missing ToC or outputs).")
     args = parser.parse_args()
 
     ui = RichUI(no_rich=args.no_rich)
@@ -148,6 +149,9 @@ async def main():
             ui.print_status(f"ToC generation complete. Wrote ToC to {toc_path}.")
         except Exception as e:
             ui.print_error(f"generating ToC: {e}")
+            if args.headless:
+                # Pipeline mode: a missing ToC is a hard failure.
+                sys.exit(1)
 
     if args.toc_only:
         ui.print_status("[Phase 1] --toc-only specified; exiting after Map Maker.")
@@ -220,6 +224,15 @@ async def main():
             ui.print_error(f"\n{e}")
     else:
         ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (outputs present).")
+
+    if args.headless:
+        # Non-interactive mode: stop before the interactive session.
+        missing = get_missing_prechat_outputs()
+        if missing:
+            ui.print_error(f"Headless run incomplete. Missing outputs: {', '.join(missing)}")
+            sys.exit(1)
+        ui.print_status("\n[Phase 3] Headless run complete. All outputs written.")
+        return
 
     ui.print_status("\n[Phase 3] Agent Ready. (Type 'exit' to quit)")
 

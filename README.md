@@ -132,6 +132,7 @@ python main.py
 | `--toc-only` | Run only Phase 1 (Map Maker) and exit. |
 | `--coordinator-only`| Run Phase 2.5 using existing worker artifacts, bypassing the workers and Map Maker. |
 | `--no-rich` | Disable the Rich terminal UI for plain text output. |
+| `--headless` | Run non-interactively: Map Maker + Pre-chat Audit, write all outputs, then exit. Exit code `0` on success; `1` if the ToC could not be generated or any expected output is missing. Designed for pipeline/CI use. |
 
 ### The Workflow
 

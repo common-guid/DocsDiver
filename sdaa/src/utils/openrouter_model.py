@@ -69,8 +69,9 @@ class OpenRouterModel(BaseLlm):
             if schema.required:
                 json_schema["required"] = schema.required
 
-        # TODO: Handle array items if strictly needed, but internal tools seem flat or simple.
-        
+        if t == "array" and schema.items:
+            json_schema["items"] = self._convert_schema(schema.items)
+
         return json_schema
 
     def _convert_tools(self, tools: List[Any]) -> List[Dict[str, Any]]:

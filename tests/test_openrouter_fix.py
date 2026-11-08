@@ -193,3 +193,75 @@ async def test_response_missing_or_empty_provider_id_uses_fallback(provider_id):
 
     calls = [p.function_call for p in responses[0].content.parts if p.function_call]
     assert [c.id for c in calls] == ["functions.audit_tool:0"]
+
+
+@pytest.mark.asyncio
+async def test_tool_schema_preserves_array_items():
+    real_client = AsyncOpenAI(api_key="dummy", base_url="http://dummy")
+    real_client.chat = MagicMock()
+    real_client.chat.completions = MagicMock()
+    real_client.chat.completions.create = AsyncMock()
+    message = MagicMock()
+    message.content = "ok"
+    message.tool_calls = None
+    message.reasoning_details = None
+    real_client.chat.completions.create.return_value = _completion_with(message)
+
+    tool = types.Tool(function_declarations=[
+        types.FunctionDeclaration(
+            name="audit_tool",
+            description="Record an audit finding.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "finding": types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "severity": types.Schema(type=types.Type.STRING, description="sev"),
+                        },
+                        required=["severity"],
+                    ),
+                    "tags": types.Schema(
+                        type=types.Type.ARRAY,
+                        items=types.Schema(type=types.Type.STRING, description="tag"),
+                    ),
+                    "evidence": types.Schema(
+                        type=types.Type.ARRAY,
+                        items=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "quotes": types.Schema(
+                                    type=types.Type.ARRAY,
+                                    items=types.Schema(type=types.Type.STRING),
+                                ),
+                            },
+                            required=["quotes"],
+                        ),
+                    ),
+                    "notes": types.Schema(type=types.Type.ARRAY),
+                },
+                required=["finding", "tags", "evidence"],
+            ),
+        )
+    ])
+    request = LlmRequest(
+        contents=[types.Content(role="user", parts=[types.Part.from_text(text="Audit")])],
+        config=types.GenerateContentConfig(tools=[tool]),
+    )
+
+    with patch("sdaa.src.utils.openrouter_model.AsyncOpenAI", return_value=real_client):
+        model = OpenRouterModel(model_name="test-model", api_key="test-key")
+        async for _ in model.generate_content_async(request):
+            pass
+
+    params = real_client.chat.completions.create.call_args.kwargs["tools"][0]["function"]["parameters"]
+    assert params["required"] == ["finding", "tags", "evidence"]
+    assert params["properties"]["finding"]["properties"]["severity"]["type"] == "string"
+    assert params["properties"]["finding"]["required"] == ["severity"]
+    assert params["properties"]["tags"]["type"] == "array"
+    assert params["properties"]["tags"]["items"]["type"] == "string"
+    quotes = params["properties"]["evidence"]["items"]["properties"]["quotes"]
+    assert quotes["type"] == "array"
+    assert quotes["items"]["type"] == "string"
+    assert params["properties"]["evidence"]["items"]["required"] == ["quotes"]
+    assert "items" not in params["properties"]["notes"]

@@ -364,10 +364,5 @@ class OpenRouterModel(BaseLlm):
                     yield LlmResponse(content=content)
 
             except Exception as e:
-                # Handle error gracefully or re-raise
-                # Record exception in span
                 span.record_exception(e)
-                # Returning an error message as content for now
-                error_msg = f"Error calling OpenRouter: {str(e)}"
-                content = types.Content(parts=[types.Part.from_text(text=error_msg)])
-                yield LlmResponse(content=content)
+                raise

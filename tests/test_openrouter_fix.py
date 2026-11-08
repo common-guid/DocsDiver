@@ -265,3 +265,33 @@ async def test_tool_schema_preserves_array_items():
     assert quotes["items"]["type"] == "string"
     assert params["properties"]["evidence"]["items"]["required"] == ["quotes"]
     assert "items" not in params["properties"]["notes"]
+
+
+@pytest.mark.asyncio
+async def test_transport_failure_raises_not_assistant_text():
+    real_client = AsyncOpenAI(api_key="dummy", base_url="http://dummy")
+    real_client.chat = MagicMock()
+    real_client.chat.completions = MagicMock()
+    real_client.chat.completions.create = AsyncMock(
+        side_effect=RuntimeError("Error code: 422 - TOKEN_422_SYNTHETIC")
+    )
+
+    with patch("sdaa.src.utils.openrouter_model.AsyncOpenAI", return_value=real_client):
+        model = OpenRouterModel(model_name="x-ai/grok-4.1-fast", api_key="test-key")
+        request = LlmRequest(
+            contents=[types.Content(role="user", parts=[types.Part.from_text(text="Audit")])],
+            config={},
+        )
+        responses = []
+        with pytest.raises(RuntimeError, match="TOKEN_422_SYNTHETIC"):
+            async for resp in model.generate_content_async(request):
+                responses.append(resp)
+
+    assert responses == []
+    yielded = " ".join(
+        part.text or ""
+        for resp in responses
+        for part in (resp.content.parts or [])
+    )
+    assert "Error calling OpenRouter:" not in yielded
+    assert "TOKEN_422_SYNTHETIC" not in yielded

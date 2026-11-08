@@ -87,3 +87,109 @@ async def test_openrouter_history_reconstruction_ids():
         # Message 2: Tool Response
         assert messages[2]["role"] == "tool"
         assert messages[2]["tool_call_id"] == "functions.test_tool:0"
+
+
+def _completion_with(message):
+    response = MagicMock()
+    response.choices = [MagicMock(message=message)]
+    return response
+
+
+def _tool_call(tc_id, name, arguments):
+    tool_call = MagicMock()
+    tool_call.id = tc_id
+    tool_call.function.name = name
+    tool_call.function.arguments = arguments
+    return tool_call
+
+
+@pytest.mark.asyncio
+async def test_response_preserves_provider_tool_call_ids():
+    real_client = AsyncOpenAI(api_key="dummy", base_url="http://dummy")
+    real_client.chat = MagicMock()
+    real_client.chat.completions = MagicMock()
+    real_client.chat.completions.create = AsyncMock()
+
+    first = MagicMock()
+    first.content = None
+    first.reasoning_details = None
+    first.tool_calls = [
+        _tool_call("call_prov_a", "audit_tool", '{"n": 1}'),
+        _tool_call("call_prov_b", "audit_tool", '{"n": 2}'),
+    ]
+    second = MagicMock()
+    second.content = "done"
+    second.tool_calls = None
+    second.reasoning_details = None
+    real_client.chat.completions.create.side_effect = [
+        _completion_with(first),
+        _completion_with(second),
+    ]
+
+    with patch("sdaa.src.utils.openrouter_model.AsyncOpenAI", return_value=real_client):
+        model = OpenRouterModel(model_name="x-ai/grok-4.1-fast", api_key="test-key")
+        first_request = LlmRequest(
+            contents=[types.Content(role="user", parts=[types.Part.from_text(text="Audit")])],
+            config={},
+        )
+        responses = []
+        async for resp in model.generate_content_async(first_request):
+            responses.append(resp)
+
+        calls = [p.function_call for p in responses[0].content.parts if p.function_call]
+        assert [c.id for c in calls] == ["call_prov_a", "call_prov_b"]
+        assert [c.name for c in calls] == ["audit_tool", "audit_tool"]
+
+        contents = [
+            types.Content(role="user", parts=[types.Part.from_text(text="Audit")]),
+            types.Content(role="model", parts=[types.Part(function_call=c) for c in calls]),
+            types.Content(role="user", parts=[
+                types.Part(function_response=types.FunctionResponse(
+                    name="audit_tool", response={"ok": True}, id="call_prov_a"
+                )),
+                types.Part(function_response=types.FunctionResponse(
+                    name="audit_tool", response={"ok": True}, id="call_prov_b"
+                )),
+            ]),
+        ]
+        async for _ in model.generate_content_async(LlmRequest(contents=contents, config={})):
+            pass
+
+    second_kwargs = real_client.chat.completions.create.call_args_list[1].kwargs
+    assert second_kwargs["model"] == "x-ai/grok-4.1-fast"
+    assert second_kwargs["extra_body"] == {"reasoning": {"enabled": True}}
+    messages = second_kwargs["messages"]
+    assistant = next(m for m in messages if m["role"] == "assistant")
+    assert [tc["id"] for tc in assistant["tool_calls"]] == ["call_prov_a", "call_prov_b"]
+    assert [m["tool_call_id"] for m in messages if m["role"] == "tool"] == [
+        "call_prov_a",
+        "call_prov_b",
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider_id", [None, ""])
+async def test_response_missing_or_empty_provider_id_uses_fallback(provider_id):
+    real_client = AsyncOpenAI(api_key="dummy", base_url="http://dummy")
+    real_client.chat = MagicMock()
+    real_client.chat.completions = MagicMock()
+    real_client.chat.completions.create = AsyncMock()
+
+    message = MagicMock()
+    message.content = None
+    message.reasoning_details = None
+    message.tool_calls = [_tool_call(provider_id, "audit_tool", "{}")]
+    real_client.chat.completions.create.return_value = _completion_with(message)
+
+    with patch("sdaa.src.utils.openrouter_model.AsyncOpenAI", return_value=real_client):
+        model = OpenRouterModel(model_name="test-model", api_key="test-key")
+        request = LlmRequest(
+            contents=[types.Content(role="user", parts=[types.Part.from_text(text="Audit")])],
+            config={},
+        )
+        responses = []
+        async for resp in model.generate_content_async(request):
+            responses.append(resp)
+
+    calls = [p.function_call for p in responses[0].content.parts if p.function_call]
+    assert [c.id for c in calls] == ["functions.audit_tool:0"]

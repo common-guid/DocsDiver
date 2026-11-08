@@ -328,9 +328,9 @@ class OpenRouterModel(BaseLlm):
                     # Handle Tool Calls
                     if message.tool_calls:
                         for i, tool_call in enumerate(message.tool_calls):
-                            # Force ADK-compliant ID format: functions.{name}:{index}
                             func_name = tool_call.function.name
-                            tc_id = f"functions.{func_name}:{i}"
+                            provider_id = getattr(tool_call, "id", None)
+                            tc_id = provider_id if provider_id else f"functions.{func_name}:{i}"
                             func_args = json.loads(tool_call.function.arguments)
                             parts.append(
                                 types.Part(

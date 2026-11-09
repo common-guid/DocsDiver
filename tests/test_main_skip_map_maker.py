@@ -169,10 +169,12 @@ def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, 
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
-    # Stub models and runner to avoid external dependencies
-    monkeypatch.setattr(app, "OpenRouterModel", _DummyModel)
-    monkeypatch.setattr(app, "Gemini", _DummyModel)
-    monkeypatch.setattr(app, "MockModel", _DummyModel)
+    # Hermetic: model_factory holds its own references, so patch it there (patching `app.*`
+    # has no effect). Without this the default OpenRouter provider makes a real HTTP call.
+    import sdaa.src.core.model_factory as model_factory
+    monkeypatch.setattr(model_factory, "OpenRouterModel", _DummyModel)
+    monkeypatch.setattr(model_factory, "InstrumentedGemini", _DummyModel)
+    monkeypatch.setattr(model_factory, "MockModel", _DummyModel)
 
     # Capture that the coordinator is created successfully
     created = {"agent": None}

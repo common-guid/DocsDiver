@@ -1,4 +1,5 @@
 from google.adk.agents import LlmAgent
+import os
 import re
 import logging
 from google.adk.agents.readonly_context import ReadonlyContext
@@ -17,6 +18,7 @@ from sdaa.src.agents.workers import (
 from sdaa.src.core.model_factory import get_model_for_agent
 from sdaa.src.utils.prompt_manager import prompt_manager
 from sdaa.src.core.config_loader import config_loader
+from sdaa.src.core.output_validation import WORKER_ARTIFACTS, text_output_problems
 
 
 # SUPERVISOR_PROMPT is now managed via Langfuse (coordinator-agent)
@@ -71,9 +73,20 @@ def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
         model = get_model_for_agent("coordinator", provider)
 
     def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
-        permissions_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("permissions_report") or "").strip())
-        constraints_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("constraints_report") or "").strip())
-        boundaries_report = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", (ctx.state.get("boundaries_report") or "").strip())
+        # Session state holds tool acknowledgements, not findings (loader replay and fresh runs
+        # alike), so read the bodies from the artifact files the reporting tools wrote.
+        artifacts_dir = config_loader.get_artifacts_dir()
+        bodies = {}
+        for key, filename in WORKER_ARTIFACTS.items():
+            path = os.path.join(artifacts_dir, filename)
+            body = ""
+            if not text_output_problems(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    body = f.read()
+            bodies[key] = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", body.strip())
+        permissions_report = bodies["permissions_report"]
+        constraints_report = bodies["constraints_report"]
+        boundaries_report = bodies["boundaries_report"]
 
         if not permissions_report:
             permissions_report = "MISSING: permissions_report"

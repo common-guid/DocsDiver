@@ -21,7 +21,10 @@ class TestOpenRouterPayload(unittest.TestCase):
 
             # Setup mock client
             mock_client_instance = AsyncMock()
-            mock_client_instance.chat.completions.create.return_value = AsyncMock()
+            msg = MagicMock(content="ok", tool_calls=None, reasoning_details=None)
+            mock_client_instance.chat.completions.create.return_value = MagicMock(
+                choices=[MagicMock(message=msg)], usage=None
+            )
 
             # OpenRouterModel uses AsyncOpenAI() to create client
             # So mock_openai.AsyncOpenAI() should return our mock_client_instance

@@ -69,8 +69,9 @@ class OpenRouterModel(BaseLlm):
             if schema.required:
                 json_schema["required"] = schema.required
 
-        # TODO: Handle array items if strictly needed, but internal tools seem flat or simple.
-        
+        if t == "array" and schema.items:
+            json_schema["items"] = self._convert_schema(schema.items)
+
         return json_schema
 
     def _convert_tools(self, tools: List[Any]) -> List[Dict[str, Any]]:
@@ -328,9 +329,9 @@ class OpenRouterModel(BaseLlm):
                     # Handle Tool Calls
                     if message.tool_calls:
                         for i, tool_call in enumerate(message.tool_calls):
-                            # Force ADK-compliant ID format: functions.{name}:{index}
                             func_name = tool_call.function.name
-                            tc_id = f"functions.{func_name}:{i}"
+                            provider_id = getattr(tool_call, "id", None)
+                            tc_id = provider_id if provider_id else f"functions.{func_name}:{i}"
                             func_args = json.loads(tool_call.function.arguments)
                             parts.append(
                                 types.Part(
@@ -363,10 +364,5 @@ class OpenRouterModel(BaseLlm):
                     yield LlmResponse(content=content)
 
             except Exception as e:
-                # Handle error gracefully or re-raise
-                # Record exception in span
                 span.record_exception(e)
-                # Returning an error message as content for now
-                error_msg = f"Error calling OpenRouter: {str(e)}"
-                content = types.Content(parts=[types.Part.from_text(text=error_msg)])
-                yield LlmResponse(content=content)
+                raise

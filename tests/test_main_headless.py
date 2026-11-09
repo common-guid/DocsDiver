@@ -126,3 +126,44 @@ def test_headless_exits_nonzero_when_outputs_missing(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exc:
         asyncio.run(app.main())
     assert exc.value.code == 1
+
+
+def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatch, tmp_path):
+    """A raised pre-chat failure must exit 1 even if outputs already exist.
+
+    The missing-output gate already exits 1 when files are absent. This test
+    locks the other hole: --coordinator-only runs the audit, the runner
+    raises, and stale outputs must not turn that failure into exit 0.
+    """
+    output_dir = _isolate_output_dirs(monkeypatch, tmp_path)
+    (output_dir / config_loader.get("system.toc_filename", "ToC.json")).write_text(
+        '{"files": []}', encoding="utf-8"
+    )
+    artifact_text = "existing artifact\n"
+    report_text = "existing report\n"
+    for name in (
+        "permissions_agent.md",
+        "constraints_agent.md",
+        "boundaries_agent.md",
+    ):
+        (output_dir / "artifacts" / name).write_text(artifact_text, encoding="utf-8")
+    report_path = output_dir / "reports" / "Security_Threat_Model.md"
+    report_path.write_text(report_text, encoding="utf-8")
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("Error code: 422 - TOKEN_422_SYNTHETIC")
+
+    monkeypatch.setattr(app.RichUI, "stream_response", boom)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["main.py", "-m", "mock", "--headless", "--coordinator-only", "--no-rich"],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        asyncio.run(app.main())
+    assert exc.value.code == 1
+    assert report_path.read_text(encoding="utf-8") == report_text
+    assert "TOKEN_422_SYNTHETIC" not in report_path.read_text(encoding="utf-8")
+    assert "Error calling OpenRouter:" not in report_path.read_text(encoding="utf-8")
+

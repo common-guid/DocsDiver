@@ -117,3 +117,48 @@ async def test_reasoning_persistence_response():
 
         data = json.loads(reasoning_part.inline_data.data.decode("utf-8"))
         assert data == reasoning_payload
+
+
+@pytest.mark.asyncio
+async def test_reasoning_details_echo_through_tool_result_turn():
+    real_client = AsyncOpenAI(api_key="dummy", base_url="http://dummy")
+    real_client.chat = MagicMock()
+    real_client.chat.completions = MagicMock()
+    real_client.chat.completions.create = AsyncMock()
+
+    mock_response = MagicMock()
+    message = MagicMock()
+    message.content = "done"
+    message.tool_calls = None
+    message.reasoning_details = None
+    mock_response.choices = [MagicMock(message=message)]
+    real_client.chat.completions.create.return_value = mock_response
+
+    reasoning = [{"step": 1, "text": "a"}, {"step": 2, "text": "b"}]
+    blob = types.Blob(
+        mime_type=REASONING_MIME_TYPE,
+        data=json.dumps(reasoning).encode("utf-8"),
+    )
+    fc = types.FunctionCall(name="audit_tool", args={"n": 1}, id="call_prov_a")
+    fr = types.FunctionResponse(name="audit_tool", response={"ok": True}, id="call_prov_a")
+    contents = [
+        types.Content(role="user", parts=[types.Part.from_text(text="Audit")]),
+        types.Content(role="model", parts=[
+            types.Part.from_text(text="Thinking..."),
+            types.Part(function_call=fc),
+            types.Part(inline_data=blob),
+        ]),
+        types.Content(role="user", parts=[types.Part(function_response=fr)]),
+    ]
+    request = LlmRequest(contents=contents, config={})
+
+    with patch("sdaa.src.utils.openrouter_model.AsyncOpenAI", return_value=real_client):
+        model = OpenRouterModel(model_name="test-model", api_key="test-key")
+        async for _ in model.generate_content_async(request):
+            pass
+
+    messages = real_client.chat.completions.create.call_args.kwargs["messages"]
+    assistant = next(m for m in messages if m["role"] == "assistant")
+    assert assistant["reasoning_details"] == reasoning
+    assert [m["tool_call_id"] for m in messages if m["role"] == "tool"] == ["call_prov_a"]
+    assert assistant.get("content") == "Thinking..."

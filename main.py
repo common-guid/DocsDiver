@@ -222,6 +222,8 @@ async def main():
             import traceback
             traceback.print_exc()
             ui.print_error(f"\n{e}")
+            if args.headless:
+                sys.exit(1)
     else:
         ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (outputs present).")
 

@@ -106,7 +106,19 @@ async def main():
     parser.add_argument("--coordinator-only", action="store_true", help="Run only the coordinator using existing artifacts, bypassing workers and Map Maker")
     parser.add_argument("--no-rich", action="store_true", help="Disable Rich terminal UI and use plain text output")
     parser.add_argument("--headless", action="store_true", help="Run non-interactively: Map Maker + Pre-chat Audit, write all outputs, then exit. Exit code 0 on success, 1 on failure (missing ToC or outputs).")
+    parser.add_argument("--refresh-toc", action="store_true", help="Rebuild the ToC and then the whole audit; previous outputs are kept as .prev")
+    parser.add_argument("--refresh-audit", action="store_true", help="Rerun all workers and synthesis, reusing a valid ToC; previous outputs are kept as .prev")
     args = parser.parse_args()
+
+    # Contradictory flags are usage errors (exit 2), reported before any I/O.
+    if args.refresh_toc and args.skip_map_maker:
+        parser.error("--refresh-toc cannot be combined with --skip-map-maker")
+    if args.refresh_toc and args.coordinator_only:
+        parser.error("--refresh-toc cannot be combined with --coordinator-only")
+    if args.refresh_audit and args.coordinator_only:
+        parser.error("--refresh-audit cannot be combined with --coordinator-only")
+    if args.refresh_audit and args.toc_only:
+        parser.error("--refresh-audit cannot be combined with --toc-only")
 
     ui = RichUI(no_rich=args.no_rich)
     suppress_genai_non_text_warning()
@@ -119,6 +131,11 @@ async def main():
     toc_filename = config_loader.get("system.toc_filename", "ToC.json")
     output_dir = config_loader.get_output_dir()
     toc_path = os.path.join(output_dir, toc_filename)
+
+    if args.refresh_toc:
+        # Invalidate the index and everything built from it, durably (even with --toc-only).
+        ui.print_status("[Phase 1] --refresh-toc: moving the ToC and audit outputs aside (.prev).")
+        set_aside([toc_path] + audit_output_paths())
 
     if args.skip_map_maker or args.coordinator_only:
         flag = "--skip-map-maker" if args.skip_map_maker else "--coordinator-only"
@@ -201,6 +218,9 @@ async def main():
     config_loader.get_artifacts_dir()
     output_paths = audit_output_paths()
     worker_paths, report_path = output_paths[:-1], output_paths[-1]
+    if args.refresh_audit:
+        ui.print_status("[Phase 2.5] --refresh-audit: moving worker artifacts and the report aside (.prev).")
+        set_aside(output_paths)
 
     if args.coordinator_only:
         # Coordinator-only reuses the worker artifacts; it never manufactures missing ones.

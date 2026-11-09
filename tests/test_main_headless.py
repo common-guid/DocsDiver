@@ -285,3 +285,116 @@ def test_all_valid_nothing_to_do_reports_every_output_reused(monkeypatch, tmp_pa
     printed = capsys.readouterr().out
     assert printed.count("(reused)") == 4 and "(generated)" not in printed
     assert {p.name: p.read_text(encoding="utf-8") for p in (out / "artifacts").iterdir()} == before
+
+
+# --- Refresh flags (Tactical 3, D2) ---
+import json
+
+
+def PRINT_COUNT(out, word):
+    return out.count(f"({word})")
+
+
+def _prev(path):
+    return path.with_name(path.name + ".prev")
+
+
+def test_refresh_toc_rebuilds_index_and_whole_audit(monkeypatch, tmp_path, write_valid_toc, capsys):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+    toc = out / config_loader.get("system.toc_filename", "ToC.json")
+    calls = {"n": 0}
+
+    async def fake_generate_toc(model=None):
+        calls["n"] += 1
+        assert not toc.exists(), "refresh must move the old ToC aside first"
+        write_valid_toc(toc)
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    _run(monkeypatch, "--headless", "--refresh-toc")
+
+    printed = capsys.readouterr().out
+    assert calls["n"] == 1
+    assert PRINT_COUNT(printed, "generated") == 4 and PRINT_COUNT(printed, "reused") == 0
+    assert _prev(toc).exists()
+    assert _prev(out / "reports" / "Security_Threat_Model.md").read_text(encoding="utf-8") == "old report\n"
+    assert _prev(out / "artifacts" / "permissions_agent.md").exists()
+
+
+def test_refresh_toc_after_corpus_edit_indexes_new_file_and_invalidates_audit(monkeypatch, tmp_path):
+    from sdaa.src.tools import file_ops
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "a.md").write_text("# a", encoding="utf-8")
+    monkeypatch.setattr(file_ops, "_get_docs_root", lambda: str(corpus))
+    out = _isolate_output_dirs(monkeypatch, tmp_path)
+    toc = out / config_loader.get("system.toc_filename", "ToC.json")
+
+    _run(monkeypatch, "--toc-only")  # index the original corpus (mock summaries)
+    assert [e["path"] for e in json.loads(toc.read_text())["files"]] == ["a.md"]
+    for name in ARTIFACTS:
+        (out / "artifacts" / name).write_text("valid\n", encoding="utf-8")
+    (out / "reports" / "Security_Threat_Model.md").write_text("valid\n", encoding="utf-8")
+
+    (corpus / "b.md").write_text("# b", encoding="utf-8")  # the docs changed
+    _run(monkeypatch, "--toc-only", "--refresh-toc")
+
+    assert sorted(e["path"] for e in json.loads(toc.read_text())["files"]) == ["a.md", "b.md"]
+    # Downstream outputs are invalidated durably, even though --toc-only never ran the audit.
+    for name in ARTIFACTS:
+        assert not (out / "artifacts" / name).exists() and _prev(out / "artifacts" / name).exists()
+    # So the next plain run regenerates them instead of reusing findings built from the old index.
+    _run(monkeypatch, "--headless")
+    assert "Master Audit Report" in (out / "reports" / "Security_Threat_Model.md").read_text(encoding="utf-8")
+
+
+def test_refresh_audit_reuses_toc_and_regenerates_all_outputs(monkeypatch, tmp_path, write_valid_toc, capsys):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+
+    async def fake_generate_toc(model=None):  # pragma: no cover - ToC is valid, must not run
+        raise AssertionError("--refresh-audit must reuse a valid ToC")
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    _run(monkeypatch, "--headless", "--refresh-audit")
+
+    printed = capsys.readouterr().out
+    assert PRINT_COUNT(printed, "generated") == 4 and PRINT_COUNT(printed, "reused") == 0
+    assert "# RBAC Analysis" in (out / "artifacts" / "permissions_agent.md").read_text(encoding="utf-8")
+    assert _prev(out / "artifacts" / "permissions_agent.md").read_text(encoding="utf-8") == "valid permissions_agent.md\n"
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--refresh-toc", "--skip-map-maker"],
+        ["--refresh-toc", "--coordinator-only"],
+        ["--refresh-audit", "--coordinator-only"],
+        ["--refresh-audit", "--toc-only"],
+    ],
+)
+def test_contradictory_refresh_flags_exit_2_with_no_side_effects(monkeypatch, tmp_path, write_valid_toc, flags):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+    before = _tree(out)
+    _forbid_model_calls(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", *flags)
+    assert exc.value.code == 2
+    assert _tree(out) == before
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--refresh-toc", "--toc-only"],
+        ["--refresh-audit", "--skip-map-maker", "--headless"],
+        ["--refresh-toc", "--refresh-audit", "--headless"],
+    ],
+)
+def test_allowed_refresh_combinations_run(monkeypatch, tmp_path, write_valid_toc, flags):
+    _seed(monkeypatch, tmp_path, write_valid_toc)
+
+    async def fake_generate_toc(model=None):
+        write_valid_toc(tmp_path / "out" / config_loader.get("system.toc_filename", "ToC.json"))
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    _run(monkeypatch, *flags)  # must not raise SystemExit

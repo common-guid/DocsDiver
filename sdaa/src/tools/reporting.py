@@ -42,15 +42,12 @@ def generate_final_report(report_content: str) -> str:
     Returns:
         Status message.
     """
-    try:
-        reports_dir = config_loader.get_reports_dir()
-        filepath = os.path.join(reports_dir, "Security_Threat_Model.md")
-        filepath = os.path.abspath(filepath)
-        with open(filepath, "w", encoding='utf-8') as f:
-            f.write(report_content)
-        return f"Report saved successfully to {filepath}."
-    except Exception as e:
-        return f"Error saving report: {str(e)}"
+    reports_dir = config_loader.get_reports_dir()
+    filepath = os.path.join(reports_dir, "Security_Threat_Model.md")
+    filepath = os.path.abspath(filepath)
+    with open(filepath, "w", encoding='utf-8') as f:
+        f.write(report_content)
+    return f"Report saved successfully to {filepath}."
 
 def report_permissions_matrix(findings: str) -> str:
     """
@@ -58,14 +55,11 @@ def report_permissions_matrix(findings: str) -> str:
     Args:
         findings: Markdown or text description of findings.
     """
-    try:
-        artifacts_dir = config_loader.get_artifacts_dir()
-        filepath = os.path.join(artifacts_dir, "permissions_agent.md")
-        with open(filepath, "w", encoding='utf-8') as f:
-            f.write(findings)
-        return f"Permissions findings recorded and saved to {filepath}."
-    except Exception as e:
-        return f"Error saving permissions findings: {str(e)}"
+    artifacts_dir = config_loader.get_artifacts_dir()
+    filepath = os.path.join(artifacts_dir, "permissions_agent.md")
+    with open(filepath, "w", encoding='utf-8') as f:
+        f.write(findings)
+    return f"Permissions findings recorded and saved to {filepath}."
 
 def report_invariance_findings(findings: str) -> str:
     """
@@ -73,14 +67,11 @@ def report_invariance_findings(findings: str) -> str:
     Args:
         findings: Markdown or text description.
     """
-    try:
-        artifacts_dir = config_loader.get_artifacts_dir()
-        filepath = os.path.join(artifacts_dir, "constraints_agent.md")
-        with open(filepath, "w", encoding='utf-8') as f:
-            f.write(findings)
-        return f"Invariance findings recorded and saved to {filepath}."
-    except Exception as e:
-        return f"Error saving invariance findings: {str(e)}"
+    artifacts_dir = config_loader.get_artifacts_dir()
+    filepath = os.path.join(artifacts_dir, "constraints_agent.md")
+    with open(filepath, "w", encoding='utf-8') as f:
+        f.write(findings)
+    return f"Invariance findings recorded and saved to {filepath}."
 
 def report_boundary_analysis(boundaries_markdown: str) -> str:
     """
@@ -88,13 +79,10 @@ def report_boundary_analysis(boundaries_markdown: str) -> str:
     Args:
         boundaries_markdown: Markdown string containing boundary analysis findings.
     """
-    try:
-        artifacts_dir = config_loader.get_artifacts_dir()
-        filepath = os.path.join(artifacts_dir, "boundaries_agent.md")
+    artifacts_dir = config_loader.get_artifacts_dir()
+    filepath = os.path.join(artifacts_dir, "boundaries_agent.md")
 
-        with open(filepath, "w", encoding='utf-8') as f:
-            f.write(boundaries_markdown)
+    with open(filepath, "w", encoding='utf-8') as f:
+        f.write(boundaries_markdown)
 
-        return f"Recorded boundary analysis and saved to {filepath}."
-    except Exception as e:
-        return f"Error saving boundary analysis: {str(e)}"
+    return f"Recorded boundary analysis and saved to {filepath}."

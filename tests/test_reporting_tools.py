@@ -1,4 +1,5 @@
 import os
+import pytest
 from sdaa.src.tools.reporting import (
     generate_final_report,
     report_permissions_matrix,
@@ -63,3 +64,19 @@ def test_report_boundary_analysis_str():
     assert os.path.exists(filepath)
     with open(filepath, "r") as f:
         assert f.read() == markdown_content
+
+
+@pytest.mark.parametrize(
+    "tool, arg, dir_getter",
+    [
+        (generate_final_report, "x", "get_reports_dir"),
+        (report_permissions_matrix, "x", "get_artifacts_dir"),
+        (report_invariance_findings, "x", "get_artifacts_dir"),
+        (report_boundary_analysis, "x", "get_artifacts_dir"),
+    ],
+)
+def test_reporting_tools_raise_when_write_fails(monkeypatch, tmp_path, tool, arg, dir_getter):
+    """A failed write must raise, not come back to the model as an 'Error ...' string."""
+    monkeypatch.setattr(config_loader, dir_getter, lambda: str(tmp_path / "does" / "not" / "exist"))
+    with pytest.raises(OSError):
+        tool(arg)

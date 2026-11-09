@@ -10,9 +10,8 @@ async def test_generate_toc():
     output_dir = config_loader.get_output_dir()
     toc_path = os.path.join(output_dir, toc_filename)
 
-    # Ensure pre-existing ToC does not cause the skip guard to bypass generation
-    if os.path.exists(toc_path):
-        os.remove(toc_path)
+    # conftest gives each test a fresh output dir, so no pre-existing ToC can trigger the skip guard.
+    assert not os.path.exists(toc_path)
 
     # Run async function
     await generate_toc()

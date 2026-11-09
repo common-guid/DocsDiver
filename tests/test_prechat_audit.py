@@ -9,7 +9,7 @@ from sdaa.src.core.config_loader import config_loader
 from sdaa.src.utils.mock_model import MockModel
 
 
-def test_get_missing_prechat_outputs(monkeypatch, tmp_path):
+def test_audit_output_problems_tracks_the_four_outputs(monkeypatch, tmp_path):
     def fake_get_output_dir() -> str:
         path = tmp_path / "out_prechat"
         os.makedirs(path, exist_ok=True)
@@ -17,8 +17,7 @@ def test_get_missing_prechat_outputs(monkeypatch, tmp_path):
 
     monkeypatch.setattr(config_loader, "get_output_dir", fake_get_output_dir)
 
-    missing = app.get_missing_prechat_outputs()
-    assert len(missing) == 4
+    assert len(app.audit_output_problems()) == 4
 
     artifacts_dir = config_loader.get_artifacts_dir()
     reports_dir = config_loader.get_reports_dir()
@@ -32,8 +31,7 @@ def test_get_missing_prechat_outputs(monkeypatch, tmp_path):
     with open(os.path.join(reports_dir, "Security_Threat_Model.md"), "w", encoding="utf-8") as f:
         f.write("report")
 
-    missing = app.get_missing_prechat_outputs()
-    assert missing == []
+    assert app.audit_output_problems() == []
 
 
 def test_build_prechat_audit_agent_order():

@@ -54,43 +54,20 @@ def suppress_genai_non_text_warning() -> None:
 
     logger.addFilter(_SuppressNonTextWarning())
 
-def _expected_prechat_output_paths() -> list[str]:
-    artifacts_dir = config_loader.get_artifacts_dir()
-    reports_dir = config_loader.get_reports_dir()
-    return [
-        os.path.join(artifacts_dir, "permissions_agent.md"),
-        os.path.join(artifacts_dir, "constraints_agent.md"),
-        os.path.join(artifacts_dir, "boundaries_agent.md"),
-        os.path.join(reports_dir, "Security_Threat_Model.md"),
-    ]
-
-def get_missing_prechat_outputs() -> list[str]:
-    expected_paths = _expected_prechat_output_paths()
-    return [path for path in expected_paths if not os.path.exists(path)]
-
-def build_prechat_audit_agent(provider: str, coordinator_only: bool = False) -> SequentialAgent:
+def build_prechat_audit_agent(provider: str) -> SequentialAgent:
     artifacts_dir = config_loader.get_artifacts_dir()
     
     # helper to decide model for a worker
     def get_worker_model(agent_name: str, artifact_name: str, tool_name: str, tool_arg: str):
         artifact_path = os.path.join(artifacts_dir, artifact_name)
         
-        # If artifact exists, use it (Optimization Goal 1)
-        if os.path.exists(artifact_path):
-            print(f"DEBUG: Found existing artifact for {agent_name}, skipping execution.")
+        # Reuse only a valid artifact (non-empty, not a placeholder); anything else is regenerated.
+        if not text_output_problems(artifact_path):
+            print(f"DEBUG: Found valid artifact for {agent_name}, skipping execution.")
             with open(artifact_path, "r", encoding="utf-8") as f:
                 content = f.read()
             return ArtifactLoaderModel(content=content, tool_name=tool_name, tool_arg_name=tool_arg)
-            
-        # If coordinator only and artifact missing, skip with dummy (Goal 2)
-        if coordinator_only:
-            print(f"DEBUG: Coordinator-only mode: Skipping {agent_name} (artifact missing).")
-            return ArtifactLoaderModel(
-                content=f"SKIPPED: {agent_name} was skipped because --coordinator-only was specified and no artifact was found.",
-                tool_name=tool_name, 
-                tool_arg_name=tool_arg
-            )
-            
+
         # Otherwise use real model
         return get_model_for_agent(agent_name, provider)
 
@@ -222,12 +199,30 @@ async def main():
     # Ensure output directories exist
     config_loader.get_reports_dir()
     config_loader.get_artifacts_dir()
-    missing_outputs = get_missing_prechat_outputs()
-    if missing_outputs or args.coordinator_only:
+    output_paths = audit_output_paths()
+    worker_paths, report_path = output_paths[:-1], output_paths[-1]
+
+    if args.coordinator_only:
+        # Coordinator-only reuses the worker artifacts; it never manufactures missing ones.
+        unusable = [p for path in worker_paths for p in text_output_problems(path)]
+        if unusable:
+            ui.print_error(
+                "--coordinator-only needs three valid worker artifacts:\n  " + "\n  ".join(unusable)
+                + "\nRun without --coordinator-only to generate them."
+            )
+            sys.exit(1)
+
+    stale = [path for path in output_paths if text_output_problems(path)]
+    generated = set()
+    if stale or args.coordinator_only:
+        # Synthesis always regenerates the report; set it aside with any invalid output so a run
+        # that fails to rewrite it ends with the report missing, not stale.
+        generated = set(stale) | {report_path}
+        set_aside(sorted(generated))
         ui.print_status(
             "\n[Phase 2.5] Running Pre-chat Audit..."
         )
-        prechat_agent = build_prechat_audit_agent(provider=args.model, coordinator_only=args.coordinator_only)
+        prechat_agent = build_prechat_audit_agent(provider=args.model)
         prechat_runner = Runner(
             agent=prechat_agent,
             app_name="sdaa",
@@ -251,16 +246,23 @@ async def main():
             if args.headless:
                 sys.exit(1)
     else:
-        ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (outputs present).")
+        ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (all outputs valid).")
 
+    ui.print_status(
+        "Audit outputs: " + ", ".join(
+            f"{os.path.basename(p)} ({'generated' if p in generated else 'reused'})" for p in output_paths
+        )
+    )
+    problems = audit_output_problems()
     if args.headless:
-        # Non-interactive mode: stop before the interactive session.
-        missing = get_missing_prechat_outputs()
-        if missing:
-            ui.print_error(f"Headless run incomplete. Missing outputs: {', '.join(missing)}")
+        # Non-interactive mode: success means every output is present AND valid.
+        if problems:
+            ui.print_error("Headless run incomplete:\n  " + "\n  ".join(problems))
             sys.exit(1)
-        ui.print_status("\n[Phase 3] Headless run complete. All outputs written.")
+        ui.print_status("\n[Phase 3] Headless run complete. All outputs valid.")
         return
+    if problems:
+        ui.print_status("WARNING: some audit outputs are not valid:\n  " + "\n  ".join(problems))
 
     ui.print_status("\n[Phase 3] Agent Ready. (Type 'exit' to quit)")
 

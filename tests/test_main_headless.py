@@ -159,7 +159,129 @@ def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatc
     with pytest.raises(SystemExit) as exc:
         asyncio.run(app.main())
     assert exc.value.code == 1
-    assert report_path.read_text(encoding="utf-8") == report_text
-    assert "TOKEN_422_SYNTHETIC" not in report_path.read_text(encoding="utf-8")
-    assert "Error calling OpenRouter:" not in report_path.read_text(encoding="utf-8")
+    # The report is set aside before synthesis, so a failed run leaves it missing (never stale
+    # and never overwritten with the error); the previous text survives as .prev.
+    assert not report_path.exists()
+    prev = report_path.with_name(report_path.name + ".prev")
+    assert prev.read_text(encoding="utf-8") == report_text
+    assert "TOKEN_422_SYNTHETIC" not in prev.read_text(encoding="utf-8")
+    assert "Error calling OpenRouter:" not in prev.read_text(encoding="utf-8")
 
+
+
+# --- Validated reuse and the trustworthy-completion gate (Tactical 3) ---
+from google.adk.agents import LlmAgent
+from google.adk.models import BaseLlm, LlmResponse
+from google.genai import types
+
+ARTIFACTS = ("permissions_agent.md", "constraints_agent.md", "boundaries_agent.md")
+
+
+def _seed(monkeypatch, tmp_path, write_valid_toc, artifacts=None, report="old report\n"):
+    """Valid ToC plus the given artifact contents (name -> text; default all valid)."""
+    output_dir = _isolate_output_dirs(monkeypatch, tmp_path)
+    write_valid_toc(output_dir / config_loader.get("system.toc_filename", "ToC.json"))
+    artifacts = artifacts if artifacts is not None else {n: f"valid {n}\n" for n in ARTIFACTS}
+    for name, text in artifacts.items():
+        (output_dir / "artifacts" / name).write_text(text, encoding="utf-8")
+    if report is not None:
+        (output_dir / "reports" / "Security_Threat_Model.md").write_text(report, encoding="utf-8")
+    return output_dir
+
+
+def _run(monkeypatch, *flags):
+    monkeypatch.setattr(sys, "argv", ["main.py", "-m", "mock", "--no-rich", *flags])
+    asyncio.run(app.main())
+
+
+def _forbid_model_calls(monkeypatch):
+    async def boom(*_a, **_k):  # pragma: no cover - must not run
+        raise AssertionError("no model/pre-chat run expected")
+
+    monkeypatch.setattr(app.RichUI, "stream_response", boom)
+
+
+def test_empty_artifact_is_regenerated_others_replayed(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "  \n",
+        "constraints_agent.md": "valid constraints\n",
+        "boundaries_agent.md": "valid boundaries\n",
+    })
+    _run(monkeypatch, "--headless")
+    assert "# RBAC Analysis" in (out / "artifacts" / "permissions_agent.md").read_text(encoding="utf-8")
+    assert (out / "artifacts" / "constraints_agent.md").read_text(encoding="utf-8") == "valid constraints\n"
+    assert "Master Audit Report" in (out / "reports" / "Security_Threat_Model.md").read_text(encoding="utf-8")
+
+
+def test_legacy_skipped_artifact_is_regenerated(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "valid\n",
+        "constraints_agent.md": "SKIPPED: constraints_agent was skipped because --coordinator-only\n",
+        "boundaries_agent.md": "valid\n",
+    })
+    _run(monkeypatch, "--headless")
+    text = (out / "artifacts" / "constraints_agent.md").read_text(encoding="utf-8")
+    assert "SKIPPED" not in text and "Logic Analysis" in text
+
+
+def _tree(root):
+    return sorted(str(p.relative_to(root)) for p in root.rglob("*"))
+
+
+def test_coordinator_only_with_skipped_artifact_exits_1_and_touches_nothing(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "valid\n",
+        "constraints_agent.md": "SKIPPED: x\n",
+        "boundaries_agent.md": "valid\n",
+    })
+    before = _tree(out)
+    _forbid_model_calls(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", "--coordinator-only")
+    assert exc.value.code == 1
+    assert _tree(out) == before
+
+
+def test_coordinator_only_with_missing_artifact_exits_1_and_writes_no_placeholder(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "valid\n",
+        "boundaries_agent.md": "valid\n",
+    })
+    _forbid_model_calls(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", "--coordinator-only")
+    assert exc.value.code == 1
+    assert not (out / "artifacts" / "constraints_agent.md").exists()
+    assert "SKIPPED" not in "".join(p.read_text(encoding="utf-8") for p in (out / "artifacts").iterdir())
+
+
+class _SilentModel(BaseLlm):
+    """Ends the turn with text and never calls a tool, so no file gets written."""
+    model: str = "silent"
+
+    async def generate_content_async(self, request, stream=False):
+        yield LlmResponse(content=types.Content(role="model", parts=[types.Part.from_text(text="done")]))
+
+
+def test_synthesis_that_writes_no_report_exits_1_and_keeps_old_report_as_prev(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, report="old report text\n")
+    monkeypatch.setattr(
+        app, "create_coordinator_synthesizer",
+        lambda provider=None, model=None: LlmAgent(name="coordinator_psa", model=_SilentModel()),
+    )
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", "--coordinator-only")
+    assert exc.value.code == 1
+    report = out / "reports" / "Security_Threat_Model.md"
+    assert not report.exists()
+    assert report.with_name(report.name + ".prev").read_text(encoding="utf-8") == "old report text\n"
+
+
+def test_all_valid_nothing_to_do_reports_every_output_reused(monkeypatch, tmp_path, write_valid_toc, capsys):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+    before = {p.name: p.read_text(encoding="utf-8") for p in (out / "artifacts").iterdir()}
+    _forbid_model_calls(monkeypatch)
+    _run(monkeypatch, "--headless")
+    printed = capsys.readouterr().out
+    assert printed.count("(reused)") == 4 and "(generated)" not in printed
+    assert {p.name: p.read_text(encoding="utf-8") for p in (out / "artifacts").iterdir()} == before

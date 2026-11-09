@@ -91,6 +91,21 @@ class OpenRouterModel(BaseLlm):
 
         return json_schema
 
+    def _declaration_parameters(self, func: Any) -> Dict[str, Any]:
+        """JSON Schema for a function declaration's parameters.
+
+        google-adk >= 2.x sets `parameters_json_schema` (already JSON Schema) and leaves
+        `parameters` None; older declarations carry a `types.Schema` in `parameters`.
+        The JSON Schema is passed through unchanged: its `title`/`default` keys are valid
+        JSON Schema and OpenAI-compatible endpoints accept them (not verified live).
+        """
+        json_schema = getattr(func, "parameters_json_schema", None)
+        if json_schema:
+            return dict(json_schema)
+        if getattr(func, "parameters", None) is not None:
+            return self._convert_schema(func.parameters)
+        return {"type": "object", "properties": {}}
+
     def _convert_tools(self, tools: List[Any]) -> List[Dict[str, Any]]:
         """Convert Google GenAI Tools to OpenAI Tools format."""
         openai_tools = []
@@ -102,7 +117,7 @@ class OpenRouterModel(BaseLlm):
                         "function": {
                             "name": func.name,
                             "description": func.description,
-                            "parameters": self._convert_schema(func.parameters)
+                            "parameters": self._declaration_parameters(func)
                         }
                     })
         return openai_tools

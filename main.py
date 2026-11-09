@@ -6,6 +6,13 @@ import logging
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
+from sdaa.src.core.output_validation import (
+    audit_output_paths,
+    audit_output_problems,
+    set_aside,
+    text_output_problems,
+    toc_problems,
+)
 from sdaa.src.agents.coordinator import (
     create_coordinator_agent,
     create_coordinator_synthesizer
@@ -137,21 +144,40 @@ async def main():
     toc_path = os.path.join(output_dir, toc_filename)
 
     if args.skip_map_maker or args.coordinator_only:
-        ui.print_status(f"\n[Phase 1] Skipping Map Maker due to --skip-map-maker flag. Expecting existing ToC at {toc_path}.")
-    elif os.path.exists(toc_path):
-        ui.print_status(f"\n[Phase 1] Skipping Map Maker because existing ToC was found at {toc_path}.")
+        flag = "--skip-map-maker" if args.skip_map_maker else "--coordinator-only"
+        ui.print_status(f"\n[Phase 1] Skipping Map Maker due to {flag}. Expecting a valid ToC at {toc_path}.")
     else:
-        ui.print_status("\n[Phase 1] Initializing Map Maker...")
-        try:
-            # Instantiate model specifically for map_maker
-            map_maker_model = get_model_for_agent("map_maker", args.model)
-            await generate_toc(model=map_maker_model)
-            ui.print_status(f"ToC generation complete. Wrote ToC to {toc_path}.")
-        except Exception as e:
-            ui.print_error(f"generating ToC: {e}")
-            if args.headless:
-                # Pipeline mode: a missing ToC is a hard failure.
+        existing_problems = toc_problems(toc_path)
+        if not existing_problems:
+            ui.print_status(f"\n[Phase 1] Skipping Map Maker because a valid ToC was found at {toc_path}.")
+        else:
+            if os.path.exists(toc_path):
+                ui.print_status(
+                    f"\n[Phase 1] Existing ToC is invalid ({existing_problems[0]}); regenerating. "
+                    f"The previous file is kept as {toc_path}.prev."
+                )
+            ui.print_status("\n[Phase 1] Initializing Map Maker...")
+            # Move the old ToC aside so generate_toc's exists-guard cannot skip it and a
+            # failed run leaves the ToC missing rather than stale.
+            set_aside([toc_path])
+            try:
+                # Instantiate model specifically for map_maker
+                map_maker_model = get_model_for_agent("map_maker", args.model)
+                await generate_toc(model=map_maker_model)
+            except Exception as e:
+                # A missing or partial index is fatal in every mode.
+                ui.print_error(f"generating ToC: {e}")
                 sys.exit(1)
+            ui.print_status(f"ToC generation complete. Wrote ToC to {toc_path}.")
+            if any(not text_output_problems(p) for p in audit_output_paths()):
+                ui.print_status(
+                    "WARNING: audit outputs predate the new ToC; use --refresh-audit to regenerate them."
+                )
+
+    toc_errors = toc_problems(toc_path)
+    if toc_errors:
+        ui.print_error("ToC is not usable:\n  " + "\n  ".join(toc_errors))
+        sys.exit(1)
 
     if args.toc_only:
         ui.print_status("[Phase 1] --toc-only specified; exiting after Map Maker.")

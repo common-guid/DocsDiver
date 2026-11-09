@@ -67,7 +67,7 @@ def _isolate_output_dirs(monkeypatch, tmp_path):
     return output_dir
 
 
-def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path):
+def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path, write_valid_toc):
     """--headless with the mock provider runs the full audit non-interactively.
 
     MockModel writes the three worker artifacts and the coordinator writes
@@ -78,7 +78,7 @@ def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path):
     toc_path = output_dir / config_loader.get("system.toc_filename", "ToC.json")
 
     async def fake_generate_toc(model=None):
-        toc_path.write_text('{"files": []}', encoding="utf-8")
+        write_valid_toc(toc_path)
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
@@ -104,14 +104,12 @@ def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path):
     assert (reports_dir / "Security_Threat_Model.md").exists()
 
 
-def test_headless_exits_nonzero_when_outputs_missing(monkeypatch, tmp_path):
+def test_headless_exits_nonzero_when_outputs_missing(monkeypatch, tmp_path, write_valid_toc):
     """--headless must exit 1 when the audit leaves outputs missing."""
     output_dir = _isolate_output_dirs(monkeypatch, tmp_path)
 
     async def fake_generate_toc(model=None):
-        (output_dir / config_loader.get("system.toc_filename", "ToC.json")).write_text(
-            '{"files": []}', encoding="utf-8"
-        )
+        write_valid_toc(output_dir / config_loader.get("system.toc_filename", "ToC.json"))
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
@@ -128,7 +126,7 @@ def test_headless_exits_nonzero_when_outputs_missing(monkeypatch, tmp_path):
     assert exc.value.code == 1
 
 
-def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatch, tmp_path):
+def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatch, tmp_path, write_valid_toc):
     """A raised pre-chat failure must exit 1 even if outputs already exist.
 
     The missing-output gate already exits 1 when files are absent. This test
@@ -136,9 +134,7 @@ def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatc
     raises, and stale outputs must not turn that failure into exit 0.
     """
     output_dir = _isolate_output_dirs(monkeypatch, tmp_path)
-    (output_dir / config_loader.get("system.toc_filename", "ToC.json")).write_text(
-        '{"files": []}', encoding="utf-8"
-    )
+    write_valid_toc(output_dir / config_loader.get("system.toc_filename", "ToC.json"))
     artifact_text = "existing artifact\n"
     report_text = "existing report\n"
     for name in (

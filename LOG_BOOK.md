@@ -123,3 +123,9 @@ Created `docs/OBSERVABILITY_AND_PROMPTS.md` covering unified OpenTelemetry traci
 
 
 
+
+## OpenRouter Adapter Hardening (PR #44) | 2026-11-09
+Preserved provider tool-call ids and JSON Schema `items`, made provider errors raise instead of becoming assistant text, and made headless pre-chat failures exit 1. Fixed `test_openrouter_payload.py` to use a real mock response.
+
+## Key Rotation Rebase (PR #39) | 2026-11-09
+Rebased API key rotation onto #44: OpenRouter rotation now wraps only the `create` call (`_create_with_rotation`). Dropped the `google-api-core` import (not in `requirements.lock`; Gemini 429s are detected via `ClientError.code`) and updated stale tests (`client: Any`, `InstrumentedGemini` is a `BaseLlm`).

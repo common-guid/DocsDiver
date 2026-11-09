@@ -266,3 +266,16 @@ Implemented API key rotation for OpenRouter and Gemini to handle rate limits aut
 
 ### Next Steps & Continuity
 - Monitor logs for "Rate limit hit" warnings to assess if the provided key pool is sufficient for the workload.
+
+## Phase: PR Triage & Merge (#44, #39) | 2026-11-09
+Reviewed four open PRs. Merged #44 (OpenRouter hardening) and #39 (API key rotation, rebased onto #44). PRs #32 (stale tracing fix, superseded) and #28 (notebook context management, superseded by ADK013 branches) were dropped by the user.
+
+### Tasks Completed
+- [x] Fixed #44's failing `test_openrouter_payload.py` (bad mock response exposed by raise-on-error).
+- [x] Rebased #39: re-applied rotation as `_create_with_rotation`, removed `google-api-core` dependency, fixed 3 stale tests.
+- [x] Suite green (52 passed) in a clean venv from `requirements.lock` (Python 3.14; #44 was verified on 3.11).
+
+### Next Steps & Continuity
+- Confirm `ADK013_improve-context-mgt` covers `reset_context`; salvage `SharedMemorySessionService` from #28 only if not.
+- Optionally re-run the suite on Python 3.11 to match `requirements.lock`.
+- Multi-key rotation (`OPENROUTER_API_KEY`/`GEMINI_API_KEY` comma-separated) is untested against live providers.

@@ -63,7 +63,8 @@ graph TD
   2. `constraints_agent`: Analyzes negative security constraints and invariance rules.
   3. `boundaries_agent`: Analyzes security perimeter boundaries and trust zones.
   4. `coordinator_synth`: Compiles individual worker artifacts into `Security_Threat_Model.md`.
-- **Optimization Guard (`ArtifactLoaderModel`)**: If an artifact file (e.g., `permissions_agent.md`) already exists on disk, `build_prechat_audit_agent` swaps out the LLM for `ArtifactLoaderModel`, simulating tool invocation without invoking remote LLM APIs.
+- **Optimization Guard (`ArtifactLoaderModel`)**: If a *valid* artifact file (e.g., `permissions_agent.md`: non-empty and not a placeholder) already exists on disk, `build_prechat_audit_agent` swaps out the LLM for `ArtifactLoaderModel`, replaying the reporting tool call without invoking remote LLM APIs. Invalid or missing artifacts are regenerated; the synthesizer reads the artifact files, not session state.
+- **Completion gate**: after the pre-chat audit, `--headless` succeeds only if the ToC and all four outputs validate (`sdaa/src/core/output_validation.py`). Outputs about to be regenerated are first renamed to `<name>.prev`, so a failed run leaves them missing rather than stale.
 
 ---
 

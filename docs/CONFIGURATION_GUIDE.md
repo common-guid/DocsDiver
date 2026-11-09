@@ -148,6 +148,9 @@ python main.py [FLAGS]
 | | `--toc-only` | Flag (boolean) | `False` | Generates `ToC.json` and exits immediately before starting agents. |
 | | `--coordinator-only` | Flag (boolean) | `False` | Runs only the Coordinator using pre-existing worker artifacts, bypassing worker LLM execution. |
 | | `--no-rich` | Flag (boolean) | `False` | Disables Rich terminal formatting for plain text log output. |
+| | `--headless` | Flag (boolean) | `False` | Runs Map Maker and the pre-chat audit non-interactively. Exit `0` only with a valid ToC and four valid outputs; `1` on failure; `2` on contradictory flags. |
+| | `--refresh-toc` | Flag (boolean) | `False` | Rebuilds the ToC and then the whole audit; previous files are kept as `.prev`. Incompatible with `--skip-map-maker` and `--coordinator-only`. |
+| | `--refresh-audit` | Flag (boolean) | `False` | Reruns all workers and synthesis, reusing a valid ToC; previous files are kept as `.prev`. Incompatible with `--coordinator-only` and `--toc-only`. |
 
 ---
 

@@ -129,3 +129,6 @@ Preserved provider tool-call ids and JSON Schema `items`, made provider errors r
 
 ## Key Rotation Rebase (PR #39) | 2026-11-09
 Rebased API key rotation onto #44: OpenRouter rotation now wraps only the `create` call (`_create_with_rotation`). Dropped the `google-api-core` import (not in `requirements.lock`; Gemini 429s are detected via `ClientError.code`) and updated stale tests (`client: Any`, `InstrumentedGemini` is a `BaseLlm`).
+
+## Repository Audit & Feature Roadmap | 2026-11-09
+Created `ROADMAP.md` with a source-grounded maturity audit, three tactical features, three strategic investments, and dependency-ordered release recommendations, accounting for unmerged ADK013 context-management work. Confirmed path-boundary defects using synthetic fixtures and parsed 38 Python files successfully; an isolated pytest attempt could not collect tests because the existing virtual environment lacks runtime dependencies, so the historical 52-pass result was not claimed as freshly verified.

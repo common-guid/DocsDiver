@@ -7,7 +7,7 @@ import os
 sys.path.append(os.getcwd())
 
 from sdaa.src.core.model_factory import get_model_for_agent
-from google.adk.models import Gemini
+from google.adk.models import BaseLlm
 from sdaa.src.utils.openrouter_model import OpenRouterModel
 from sdaa.src.utils.mock_model import MockModel
 
@@ -24,7 +24,7 @@ class TestModelFactory(unittest.TestCase):
 
         model = get_model_for_agent("map_maker", "gemini")
 
-        self.assertIsInstance(model, Gemini)
+        self.assertIsInstance(model, BaseLlm)  # InstrumentedGemini wraps Gemini (composition)
         self.assertEqual(model.model, "gemini-test-model")
 
     @patch('sdaa.src.core.model_factory.config_loader')

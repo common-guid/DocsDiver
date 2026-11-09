@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch, AsyncMock
 import os
 import pytest
 from openai import RateLimitError
-from google.api_core.exceptions import TooManyRequests
 from google.genai.errors import ClientError
 from google.genai import types
 
@@ -141,7 +140,7 @@ class TestGeminiRotation(unittest.IsolatedAsyncioTestCase):
         # Make generate_content_async raise 429 on first instance
         async def gen_1(*args, **kwargs):
             if False: yield # Force generator
-            raise TooManyRequests("Rate limit")
+            raise ClientError(429, {"error": {"message": "Rate limit"}})
 
         gemini_1.generate_content_async.side_effect = gen_1
 

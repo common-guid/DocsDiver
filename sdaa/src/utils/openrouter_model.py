@@ -24,7 +24,7 @@ REASONING_MIME_TYPE = "application/x-reasoning-details"
 
 class OpenRouterModel(BaseLlm):
     model: str
-    client: AsyncOpenAI
+    client: Any  # AsyncOpenAI; Any so the client can be swapped on key rotation
     _langfuse_prompt: Optional[Any] = None
     _rotator: Any = PrivateAttr()
     _base_url: str = PrivateAttr()

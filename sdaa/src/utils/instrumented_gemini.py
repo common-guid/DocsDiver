@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import AsyncGenerator, Optional, Any
 from google.adk.models import Gemini, BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
-from google.api_core.exceptions import TooManyRequests
 from google.genai.errors import ClientError
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
@@ -116,14 +115,7 @@ class InstrumentedGemini(BaseLlm):
 
                 except Exception as e:
                     # Check if error is a rate limit (429)
-                    is_rate_limit = False
-
-                    # Check specific exception types or codes
-                    if isinstance(e, TooManyRequests):
-                        is_rate_limit = True
-                    elif isinstance(e, ClientError) and getattr(e, 'code', None) == 429:
-                        is_rate_limit = True
-                    # Also check for message content if needed, but code is safer
+                    is_rate_limit = isinstance(e, ClientError) and getattr(e, 'code', None) == 429
 
                     if not is_rate_limit:
                         # Non-retriable error

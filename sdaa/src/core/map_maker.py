@@ -3,6 +3,7 @@ import asyncio
 import os
 import re
 from typing import List, Tuple
+from sdaa.src.tools import file_ops
 from sdaa.src.tools.file_ops import list_files, read_file
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.utils.mock_model import MockModel
@@ -74,11 +75,10 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
     If the response is not valid JSON, we attempt to extract JSON from markdown
     code blocks before falling back to using the raw text as the summary.
     """
-    try:
-        content = read_file(filepath)
-    except Exception as e:
-        # On read error, encode message as summary and derive tags from path
-        return f"Error reading file: {e}", _derive_tags_from_path(filepath)
+    content = read_file(filepath)  # access errors raise ValueError; propagate
+    # ponytail: matches file_ops error strings; use a raising reader once Tactical 1 lands
+    if content.startswith(("Error: File not found:", "Error reading file:")):
+        raise RuntimeError(f"Map Maker could not read {filepath}: {content}")
 
     prompt = (
         "You are helping build a navigation map for a documentation corpus.\n"
@@ -144,17 +144,13 @@ async def generate_toc(model=None):
 
     print(f"Generating {toc_filename} at {toc_path}...")
 
-    try:
-        files_output = list_files()
-    except Exception as e:
-        print(f"Error listing files: {e}")
-        return
-
-    if not files_output or files_output.startswith("Error"):
-        print(f"No files found or error: {files_output}")
-        file_list = []
-    else:
-        file_list = files_output.splitlines()
+    files_output = list_files()  # access errors raise ValueError; propagate
+    # ponytail: matches file_ops error strings; use a raising reader once Tactical 1 lands
+    if files_output.startswith("Error: Directory not found:"):
+        raise FileNotFoundError(f"Map Maker cannot list the docs root: {files_output}")
+    file_list = files_output.splitlines()
+    if not file_list:
+        raise ValueError(f"no Markdown files under {file_ops._get_docs_root()}")
 
     toc_entries = []
 
@@ -171,12 +167,9 @@ async def generate_toc(model=None):
 
     toc_data = {"files": toc_entries}
 
-    try:
-        with open(toc_path, 'w') as f:
-            json.dump(toc_data, f, indent=2)
-        print(f"{toc_filename} generated with {len(toc_entries)} entries at {toc_path}.")
-    except Exception as e:
-        print(f"Error writing ToC file: {e}")
+    with open(toc_path, 'w', encoding='utf-8') as f:
+        json.dump(toc_data, f, indent=2)
+    print(f"{toc_filename} generated with {len(toc_entries)} entries at {toc_path}.")
 
 if __name__ == "__main__":
     asyncio.run(generate_toc())

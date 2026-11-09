@@ -123,9 +123,12 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# misc
 test-runs_output
 IMPROVEMENTS.md
 ToC.json
 output/
 .env-crewai
 artifacts/
+.envrc

@@ -1,0 +1,131 @@
+# Langfuse Docs
+
+- [Overview](https://langfuse.com/docs.md): Langfuse is an open-source AI engineering platform (GitHub) that helps teams collaboratively debug, analyze, and iterate on their AI agent applications. All platform features are natively integrated to accelerate the development workflow.
+- [Audit Logs](https://langfuse.com/docs/administration/audit-logs.md): Comprehensive audit logging in Langfuse tracks all system activities with detailed state capture and user attribution for enterprise security and compliance requirements.
+- [Authentication & SSO](https://langfuse.com/docs/administration/authentication-and-sso.md): Overview of Single Sign-On (SSO) methods in Langfuse
+- [Billable Units](https://langfuse.com/docs/administration/billable-units.md): Learn how billable units are calculated in Langfuse.
+- [Data Deletion](https://langfuse.com/docs/administration/data-deletion.md): Delete data from Langfuse
+- [Data Retention](https://langfuse.com/docs/administration/data-retention.md): Configure project data retention and understand what happens to traces, Halo conversations, audit logs, dataset items, experiment results, and media.
+- [LLM Connections](https://langfuse.com/docs/administration/llm-connection.md): How to set up an LLM connection in Langfuse to use in the Playground or for LLM-as-a-Judge evaluations.
+- [Access Control (RBAC)](https://langfuse.com/docs/administration/rbac.md): Langfuse offers extensive RBAC capabilities to manage project sharing and permissions across different organizations and projects.
+- [SCIM and Org API](https://langfuse.com/docs/administration/scim-and-org-api.md): Langfuse is open and meant to be extended via custom workflows and integrations. You can use these endpoints to automate project and user management on your Langfuse organization.
+- [Spend Alerts](https://langfuse.com/docs/administration/spend-alerts.md): Get notified when your organization's spend exceeds predefined monetary thresholds to better manage your Langfuse Cloud costs.
+- [Troubleshooting and FAQ](https://langfuse.com/docs/administration/troubleshooting-and-faq.md): Troubleshooting and FAQ for administering Langfuse.
+- [Agent Skill](https://langfuse.com/docs/api-and-data-platform/features/agent-skill.md): Install the Langfuse agent skill to give your coding agent access to Langfuse tracing, prompt management, datasets, and documentation — right from the editor.
+- [CLI](https://langfuse.com/docs/api-and-data-platform/features/cli.md): Interact with the full Langfuse API from the command line. Built for AI agents and power users.
+- [Export from UI](https://langfuse.com/docs/api-and-data-platform/features/export-from-ui.md): Export your Langfuse observability data from the UI for analysis, fine-tuning, and integration with external tools.
+- [Export to blob storage](https://langfuse.com/docs/api-and-data-platform/features/export-to-blob-storage.md): Export enriched observations, scores, and legacy traces and observations to Blob Storage, e.g. S3, GCS, or Azure Blob Storage.
+- [Halo](https://langfuse.com/docs/api-and-data-platform/features/halo.md): Use the same Langfuse project tools as external coding agents, directly from the Langfuse UI.
+- [MCP Server](https://langfuse.com/docs/api-and-data-platform/features/mcp-server.md): Native Model Context Protocol (MCP) server for Langfuse, enabling AI assistants to interact with your Langfuse data programmatically.
+- [Public API](https://langfuse.com/docs/api-and-data-platform/features/public-api.md): All Langfuse data and features are available via the API. Follow this guide to authenticate, ingest traces, and retrieve observations, scores, and experiments.
+- [Query via SDKs](https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk.md): Query Langfuse data via Python and JS/TS SDKs using the high-performance data APIs.
+- [Overview](https://langfuse.com/docs/api-and-data-platform/overview.md): Langfuse is designed to be extensible and flexible. People using Langfuse are building all kinds of workflows and customizations on top of it. This is powered by our open data platform.
+- [Ask AI](https://langfuse.com/docs/ask-ai.md): Ask AI questions about Langfuse features, integrations, SDK usage, and best practices. Get instant answers from our AI assistant trained on documentation, GitHub discussions, and API references.
+- [Versions & Compatibility](https://langfuse.com/docs/compatibility.md): How Langfuse server, SDK, and API versions relate across Langfuse Cloud and self-hosted deployments, including the SDK ↔ server compatibility matrix.
+- [Example Project](https://langfuse.com/docs/demo.md): Try Langfuse in action with a live example project for free. Interact with the chatbot to see new traces and user feedback (👍/👎) in Langfuse. No credit card required.
+- [Docs MCP Server](https://langfuse.com/docs/docs-mcp.md): The Langfuse Docs MCP server exposes the Langfuse documentation to AI agents and coding assistants. How to connect it and which tools it provides.
+- [Concepts](https://langfuse.com/docs/evaluation/core-concepts.md): Learn the fundamental concepts behind LLM evaluation in Langfuse - Scores, Evaluation Methods, Datasets, and Experiments.
+- [Annotation Queues](https://langfuse.com/docs/evaluation/evaluation-methods/annotation-queues.md): Manage your annotation tasks with ease using our new workflow tooling. Create queues, add traces to them, and get a simple UI to review and label LLM application traces in Langfuse.
+- [Code evaluators](https://langfuse.com/docs/evaluation/evaluation-methods/code-evaluators.md): Use Python or TypeScript code in Langfuse to run deterministic evaluations on observations and experiments.
+- [Decision model evaluators](https://langfuse.com/docs/evaluation/evaluation-methods/decision-models.md): Use OpenAI or TypeSafe decision models to ask typed questions about observations and write structured evaluation scores.
+- [LLM-as-a-Judge](https://langfuse.com/docs/evaluation/evaluation-methods/llm-as-a-judge.md): Learn how LLM-as-a-Judge evaluation works — use large language models to automatically score, evaluate, and monitor your LLM application outputs at scale with rubric-guided assessments.
+- [Scores via API/SDK](https://langfuse.com/docs/evaluation/evaluation-methods/scores-via-sdk.md): Ingest custom scores via the Langfuse SDKs or API.
+- [Scores via UI](https://langfuse.com/docs/evaluation/evaluation-methods/scores-via-ui.md): Annotate traces and observations with scores in the Langfuse UI to record human-in-the-loop evaluations.
+- [Compare experiments](https://langfuse.com/docs/evaluation/experiments/compare-experiments.md): Compare application versions against a baseline, inspect individual regressions, and review failures in Langfuse.
+- [Experiments Data Model](https://langfuse.com/docs/evaluation/experiments/data-model.md): Data model for Datasets, DatasetItems, DatasetRuns, DatasetRunItems, and function definitions for Tasks and Evaluators.
+- [Datasets](https://langfuse.com/docs/evaluation/experiments/datasets.md): Use Langfuse Datasets to create structured experiments to test and benchmark LLM applications.
+- [Experiments in CI/CD](https://langfuse.com/docs/evaluation/experiments/experiments-ci-cd.md): Run Langfuse experiments in CI and gate changes before production.
+- [Experiments via OpenTelemetry](https://langfuse.com/docs/evaluation/experiments/experiments-via-opentelemetry.md): Group OpenTelemetry traces as Langfuse experiments by attaching experiment and item attributes.
+- [Experiments via SDK](https://langfuse.com/docs/evaluation/experiments/experiments-via-sdk.md): Start experiments via the Langfuse SDK to programmatically test your application
+- [Experiments via UI](https://langfuse.com/docs/evaluation/experiments/experiments-via-ui.md): Experiment with different prompt versions and models on a dataset and compare the results side-by-side directly from the Langfuse UI.
+- [Evaluate with Datasets](https://langfuse.com/docs/evaluation/get-started/offline.md): Run your first offline evaluation on a Langfuse dataset and compare prompt changes.
+- [Evaluate Production Traffic](https://langfuse.com/docs/evaluation/get-started/online.md): Score live production traces in Langfuse. Set up an evaluator and a rule to run LLM-as-a-Judge or code checks on incoming observations.
+- [Agentic access](https://langfuse.com/docs/evaluation/more/agentic-access.md): Let AI agents work with scores, datasets, experiments, evaluators, and annotation queues through the Agent Skill, CLI, or MCP server.
+- [Troubleshooting and FAQ](https://langfuse.com/docs/evaluation/more/troubleshooting-and-faq.md): Troubleshooting and FAQ for Langfuse Evaluation.
+- [Overview](https://langfuse.com/docs/evaluation/overview.md): With Langfuse you can capture all your LLM evaluations in one place. You can combine a variety of different evaluation metrics like model-based evaluations (LLM-as-a-Judge), human annotations or fully custom evaluation workflows via API/SDKs. This allows you to measure quality, tonality, factual accuracy, completeness, and other dimensions of your LLM application.
+- [Data Model](https://langfuse.com/docs/evaluation/scores/data-model.md): Data model for Score and ScoreConfig objects in Langfuse.
+- [Overview](https://langfuse.com/docs/evaluation/scores/overview.md): Scores are Langfuse's universal data object for storing evaluation results. Learn about score types, how to create scores, and when to use them.
+- [Analytics](https://langfuse.com/docs/evaluation/scores/score-analytics.md): Analyze and compare evaluation scores to validate reliability, uncover insights, and track quality trends in your LLM application. Visualize score distributions, measure agreement between evaluation methods, and monitor scores over time.
+- [Concepts](https://langfuse.com/docs/gateway/concepts.md): How the Langfuse AI Gateway routes model calls, which keys and credentials are involved, how a request reaches a model, and how each call becomes a Langfuse trace.
+- [Analytics](https://langfuse.com/docs/gateway/features/analytics.md): Track cost, requests, and tokens of the Langfuse AI Gateway per user, API key, and model, and build your own dashboards in the gateway's ingestion project.
+- [Authentication](https://langfuse.com/docs/gateway/features/api-keys.md): Gateway API keys authenticate clients to the Langfuse AI Gateway. Learn the difference between user keys and service account keys, who can create them, when they stop working, and how they set the trace user.
+- [Model management](https://langfuse.com/docs/gateway/features/models.md): See which models the Langfuse AI Gateway can call, enable or disable models per provider credential, and choose the right model ID for your client.
+- [REST API](https://langfuse.com/docs/gateway/features/rest-api.md): Base URLs, authentication, and endpoints of the Langfuse AI Gateway, including the models endpoints and the OpenAI Responses, OpenAI Chat Completions, and Anthropic Messages APIs.
+- [Tracing](https://langfuse.com/docs/gateway/features/tracing.md): What the Langfuse AI Gateway records for every model call, the FULL and USAGE ingestion modes, where gateway traces are stored, and the request headers that enrich them.
+- [Set up Gateway as an admin](https://langfuse.com/docs/gateway/get-started/admin-setup.md): Set up the Langfuse AI Gateway for an organization. Choose the ingestion project and ingestion mode, add provider credentials, choose models, give your team access, and issue gateway API keys.
+- [Send your first request](https://langfuse.com/docs/gateway/get-started/first-request.md): Create a personal gateway API key, connect your coding agent, SDK, or app to the Langfuse AI Gateway, and see your first trace.
+- [Overview](https://langfuse.com/docs/gateway/overview.md): Send OpenAI and Anthropic API calls through Langfuse to trace every model call, keep provider keys in one place, and track cost, with no SDK or code changes.
+- [Troubleshooting and FAQ](https://langfuse.com/docs/gateway/troubleshooting-and-faq.md): Fix common Langfuse AI Gateway errors and review the known limitations of the beta.
+- [Glossary](https://langfuse.com/docs/glossary.md): A comprehensive glossary of key terms and concepts used in Langfuse documentation.
+- [Custom Dashboards](https://langfuse.com/docs/metrics/features/custom-dashboards.md): Create powerful, customizable dashboards to visualize, monitor, and share insights from your LLM application data with flexible metrics, rich filtering, and dynamic layouts.
+- [Metrics API](https://langfuse.com/docs/metrics/features/metrics-api.md): Retrieve custom metrics from Langfuse for flexible analytics and reporting.
+- [Overview](https://langfuse.com/docs/metrics/overview.md): Improve your LLM application with open source metrics tracking latency, cost, and quality across various dimensions.
+- [What does a good trace look like?](https://langfuse.com/docs/observability/best-practices.md): Best practices for structuring Langfuse traces — scope, nesting, naming, input/output, and attributes — so that debugging, evaluation, and cost tracking work well.
+- [Concepts](https://langfuse.com/docs/observability/data-model.md): Langfuse (open source) helps you trace and analyze LLM applications. Learn how traces and observations are structured in Langfuse.
+- [Agent Graphs](https://langfuse.com/docs/observability/features/agent-graphs.md): Visualize and analyze complex agent workflows with Langfuse's agent graph view — as an aggregated overview or an expanded, as-it-ran DAG.
+- [Agentic access](https://langfuse.com/docs/observability/features/agentic-access.md): Let AI agents investigate observations, query metrics, and work with your Langfuse observability data through the Agent Skill, CLI, or MCP server.
+- [Alerts](https://langfuse.com/docs/observability/features/alerts.md): Set threshold-based alerts on your LLM application metrics and route notifications through automations when thresholds are breached.
+- [Comments](https://langfuse.com/docs/observability/features/comments.md): Add contextual comments to traces, observations, sessions, and prompts in Langfuse for team collaboration.
+- [Corrections](https://langfuse.com/docs/observability/features/corrections.md): Capture improved versions of LLM outputs directly in traces and observations to build better datasets and drive continuous improvement.
+- [Environments](https://langfuse.com/docs/observability/features/environments.md): Configure environments to organize your traces, observations, and scores.
+- [Chart any table](https://langfuse.com/docs/observability/features/events-table-charts.md): Toggle the Observations table into a chart over the same query. Pick a chart type, metric, aggregation, and breakdown, then add the chart to a dashboard.
+- [Filter search bar](https://langfuse.com/docs/observability/features/filter-search-bar.md): Filter and search traces and observations by typing — fields, operators, wildcards, aliases, and full-text search in one query bar with autocomplete.
+- [Full-Text Search](https://langfuse.com/docs/observability/features/full-text-search.md): Find content across the inputs, outputs, and metadata of your traces and observations with full-text search in Langfuse.
+- [Log Levels](https://langfuse.com/docs/observability/features/log-levels.md): Use Log Levels to control the verbosity of your logs and highlight errors and warnings.
+- [Masking](https://langfuse.com/docs/observability/features/masking.md): Configure masking to redact sensitive information from Langfuse SDK data and OpenTelemetry span attributes before they are sent to Langfuse.
+- [MCP Tracing](https://langfuse.com/docs/observability/features/mcp-tracing.md): End-to-end tracing of MCP clients and servers with Langfuse.
+- [Metadata](https://langfuse.com/docs/observability/features/metadata.md): Add custom metadata to your observations to better understand and correlate your observations
+- [Multi-Modality](https://langfuse.com/docs/observability/features/multi-modality.md): Langfuse fully supports multi-modal LLM traces, including text, images, audio, and attachments.
+- [Observation Types](https://langfuse.com/docs/observability/features/observation-types.md): Structured tracing with observation types in Langfuse
+- [Pulse](https://langfuse.com/docs/observability/features/pulse.md): A compact outlier chart strip above the Observations table. See count, cost, and latency spikes over time, then click or drag a spike to narrow the table to that window.
+- [Event queuing/batching](https://langfuse.com/docs/observability/features/queuing-batching.md): Queuing/batching configuration for Langfuse Tracing.
+- [Releases & Versioning](https://langfuse.com/docs/observability/features/releases-and-versioning.md): Langfuse allows for rapid iteration on LLM applications by providing insights into the effect of experiments such as A/B tests on LLM costs, latencies and quality.
+- [Sampling](https://langfuse.com/docs/observability/features/sampling.md): Configure sampling to control the volume of traces collected by the Langfuse server.
+- [Sessions](https://langfuse.com/docs/observability/features/sessions.md): Track LLM chat conversations or threads across multiple observations and traces into a single session. Replay the entire interaction to debug or analyze the conversation.
+- [Tags](https://langfuse.com/docs/observability/features/tags.md): Tags help to filter and organize traces and observations in Langfuse based on use case, functions/apis used, environment and other criteria.
+- [Token & Cost Tracking](https://langfuse.com/docs/observability/features/token-and-cost-tracking.md): Langfuse tracks usage and cost of LLM generations for various models (incl OpenAI, Anthropic, Google, and more). You can always add your own models.
+- [Trace IDs & Distributed Tracing](https://langfuse.com/docs/observability/features/trace-ids-and-distributed-tracing.md): Use custom trace IDs and tracer IDs for distributed tracing in Langfuse. Link traces across services, use deterministic IDs, and integrate with your existing tracing infrastructure.
+- [Trace URLs](https://langfuse.com/docs/observability/features/url.md): Each trace has a unique URL that you can use to share it with others or to access it directly.
+- [User Feedback](https://langfuse.com/docs/observability/features/user-feedback.md): Collect user feedback on LLM or agent outputs to improve model performance and user satisfaction.
+- [User Tracking](https://langfuse.com/docs/observability/features/users.md): User-level LLM observability to track token usage, usage volume and individual user feedback.
+- [Web Callouts](https://langfuse.com/docs/observability/features/web-callouts.md): Trigger an HTTP callout from a trace, observation, or session in Langfuse.
+- [Get Started](https://langfuse.com/docs/observability/get-started.md): Get started with LLM observability with Langfuse in minutes before diving into all platform features.
+- [Overview](https://langfuse.com/docs/observability/overview.md): Open source application tracing and observability for LLM apps. Capture traces, monitor latency, track costs, and debug issues across OpenAI, LangChain, LlamaIndex, and more.
+- [Advanced Features](https://langfuse.com/docs/observability/sdk/advanced-features.md): Configure masking, logging, sampling, multi-project routing, evaluations, and environment-specific behaviors for Python and JS/TS.
+- [Instrumentation](https://langfuse.com/docs/observability/sdk/instrumentation.md): Use native integrations or custom instrumentation patterns in Python and JavaScript/TypeScript to capture rich traces.
+- [Overview](https://langfuse.com/docs/observability/sdk/overview.md): Fully typed SDKs for Python and JavaScript/TypeScript with unified setup, instrumentation, and advanced guidance.
+- [Troubleshooting & FAQ](https://langfuse.com/docs/observability/sdk/troubleshooting-and-faq.md): Resolve common Python and JS/TS SDK issues with side-by-side guidance.
+- [Upgrade path](https://langfuse.com/docs/observability/sdk/upgrade-path.md): Migration guides for Python SDK v4 → v5, v3 → v4, v2 → v3 and JS/TS SDK v5 → v6, v4 → v5, v3 → v4.
+- [JS/TS v3 → v4](https://langfuse.com/docs/observability/sdk/upgrade-path/js-v3-to-v4.md): Migration guide for upgrading the Langfuse JS/TS SDK from v3 to v4.
+- [JS/TS v4 → v5](https://langfuse.com/docs/observability/sdk/upgrade-path/js-v4-to-v5.md): Migration guide for upgrading the Langfuse JS/TS SDK from v4 to v5.
+- [JS/TS v5 → v6](https://langfuse.com/docs/observability/sdk/upgrade-path/js-v5-to-v6.md): Migration guide for upgrading the Langfuse JS/TS SDK from v5 to v6.
+- [Python v2 → v3](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v2-to-v3.md): Migration guide for upgrading the Langfuse Python SDK from v2 to v3.
+- [Python v3 → v4](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4.md): Migration guide for upgrading the Langfuse Python SDK from v3 to v4.
+- [Python v4 → v5](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v4-to-v5.md): Migration guide for upgrading the Langfuse Python SDK from v4 to v5.
+- [Troubleshooting & FAQ](https://langfuse.com/docs/observability/troubleshooting-and-faq.md): Troubleshooting and FAQ for Langfuse Tracing.
+- [Concepts](https://langfuse.com/docs/prompt-and-skill-management/concepts.md): Core concepts of Langfuse Prompt and Skill Management, including runtime behavior, versioning, labels, structure, and configuration.
+- [Overview](https://langfuse.com/docs/prompt-and-skill-management/overview.md): Manage and version your prompts and agent skills in Langfuse (open source). Update them without redeploying your application.
+- [A/B Testing](https://langfuse.com/docs/prompt-management/features/a-b-testing.md): Use Open Source Prompt Management in Langfuse to systematically test and improve your LLM prompts with A/B testing.
+- [Agentic Prompt Management](https://langfuse.com/docs/prompt-management/features/agentic-access.md): Let AI agents retrieve, create, migrate, and update Langfuse prompts through the Agent Skill, CLI, or MCP server.
+- [Caching](https://langfuse.com/docs/prompt-management/features/caching.md): Langfuse prompts are cached client-side in the SDKs, so there's no latency impact after the first use.
+- [Prompt Composability](https://langfuse.com/docs/prompt-management/features/composability.md): Reference other prompts in your prompts using a simple tag format.
+- [Config](https://langfuse.com/docs/prompt-management/features/config.md): The prompt config in Langfuse is an optional JSON object attached to each prompt that stores structured data such as model parameters (like model name, temperature), function/tool parameters, or JSON schemas.
+- [Folders](https://langfuse.com/docs/prompt-management/features/folders.md): Organize prompts into virtual folders to group prompts with similar purposes. Use folder hierarchies to manage prompt libraries at scale.
+- [GitHub Integration](https://langfuse.com/docs/prompt-management/features/github-integration.md): Integrate Langfuse prompts with GitHub using webhooks for version control, CI/CD workflows, and automated synchronization
+- [Guaranteed Availability](https://langfuse.com/docs/prompt-management/features/guaranteed-availability.md): Ensure 100% availability of prompts by pre-fetching them on application startup and providing a fallback prompt.
+- [Link to Traces](https://langfuse.com/docs/prompt-management/features/link-to-traces.md): Link Langfuse Prompts to Traces.
+- [Message Placeholders](https://langfuse.com/docs/prompt-management/features/message-placeholders.md): Use message placeholders in chat prompts to insert a list of chat messages at specific positions within a chat prompt.
+- [n8n Node](https://langfuse.com/docs/prompt-management/features/n8n-node.md): Community-maintained n8n node that enables seamless integration of Langfuse prompt management capabilities into n8n workflows.
+- [Playground](https://langfuse.com/docs/prompt-management/features/playground.md): Test, iterate, and compare different prompts and models within the LLM Playground.
+- [Version Control](https://langfuse.com/docs/prompt-management/features/prompt-version-control.md): Use prompt labels to fetch specific prompt versions in the SDKs.
+- [Variables](https://langfuse.com/docs/prompt-management/features/variables.md): Insert dynamic text into prompts using variables that are resolved at runtime.
+- [Webhooks](https://langfuse.com/docs/prompt-management/features/webhooks-slack-integrations.md): Use webhooks to receive real‑time notifications whenever a prompt version is created, updated, or deleted in Langfuse.
+- [Get Started](https://langfuse.com/docs/prompt-management/get-started.md): Get started with Langfuse Prompt Management.
+- [Overview](https://langfuse.com/docs/prompt-management/overview.md): Manage and version your prompts in Langfuse (open source). When retrieved, they are cached by the Langfuse SDKs for low latency.
+- [Troubleshooting and FAQ](https://langfuse.com/docs/prompt-management/troubleshooting-and-faq.md): Troubleshooting and FAQ for Langfuse Prompt and Skill Management.
+- [Roadmap](https://langfuse.com/docs/roadmap.md): Explore the current product focus areas for Langfuse.
+- [Security & Guardrails](https://langfuse.com/docs/security-and-guardrails.md): Comprehensive guide to LLM security guardrails — protect against prompt injection, PII leakage, and harmful content. Learn how to use LLM Guard, NeMo Guardrails, and Langfuse to monitor and evaluate LLM safety.
+- [Get Started](https://langfuse.com/docs/skill-management/get-started.md): Create a versioned agent skill and load it with the CLI, Python SDK, JavaScript/TypeScript SDK, or REST API.
+- [Overview](https://langfuse.com/docs/skill-management/overview.md): Manage agent instructions and supporting files as versioned skills in Langfuse.
+- [Link to Traces](https://langfuse.com/docs/skill-management/tracing.md): Report available skills on generations and inspect skill-loading tools in Langfuse traces.
+- [Version Control](https://langfuse.com/docs/skill-management/version-control.md): Use skill labels to fetch specific skill versions with the CLI, SDKs, or API.

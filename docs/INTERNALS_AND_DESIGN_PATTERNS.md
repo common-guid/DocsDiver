@@ -1,0 +1,80 @@
+# Internals & Design Patterns Document
+
+## 1. Overview
+
+This document provides a technical deep-dive into the design patterns, custom abstractions, and technical solutions implemented within the **Security Documentation Analysis Agent (SDAA)** codebase.
+
+---
+
+## 2. Key Architecture & Design Patterns
+
+### Pattern 1: ADK Hierarchical Coordinator Pattern
+- **Location**: `sdaa/src/agents/coordinator.py`, `sdaa/src/agents/workers.py`
+- **Concept**: Employs Google ADK's `LlmAgent` to structure a multi-agent hierarchy.
+- **Implementation**:
+  - The supervisor (`coordinator_psa`) holds references to child worker agents (`permissions_agent`, `constraints_agent`, `boundaries_agent`) via the `sub_agents` list parameter.
+  - The pre-chat pipeline leverages `SequentialAgent` to deterministically execute worker analysis before synthesized report generation.
+
+---
+
+### Pattern 2: Model Factory (`sdaa/src/core/model_factory.py`)
+- **Location**: `sdaa/src/core/model_factory.py`
+- **Concept**: Decouples agent definitions from specific LLM vendors and model identifiers.
+- **Implementation**:
+  - `get_model_for_agent(agent_name: str, provider: str)` reads `sdaa/config/config.yaml`.
+  - Depending on the CLI `-m` selection (`gemini`, `openrouter`, `mock`), it instantiates:
+    - `google.adk.models.Gemini` (or `InstrumentedGemini` for tracing).
+    - `sdaa.src.utils.openrouter_model.OpenRouterModel`.
+    - `sdaa.src.utils.mock_model.MockModel`.
+
+```python
+# Example Factory Usage in coordinator.py
+perm_model = get_model_for_agent("permissions_agent", provider)
+permissions_agent = create_permissions_agent(model=perm_model)
+```
+
+---
+
+### Pattern 3: Artifact Loader & Execution Bypassing (`artifact_loader_model.py`)
+- **Location**: `sdaa/src/utils/artifact_loader_model.py`
+- **Concept**: Optimization pattern to avoid redundant, expensive LLM calls during re-audits or prompt testing.
+- **Mechanism**:
+  1. When pre-existing worker artifacts (e.g., `artifacts/permissions_agent.md`) exist, `build_prechat_audit_agent` replaces the LLM for that worker with `ArtifactLoaderModel`.
+  2. `ArtifactLoaderModel` implements the ADK model interface (`generate_content_async`).
+  3. Instead of invoking a remote API, it yields a simulated tool execution payload:
+     - First turn: Yields a `FunctionCall` to the reporting tool (e.g., `report_permissions_matrix`).
+     - Second turn: Yields a completion response.
+  4. The ADK runner processes the simulated tool call, writing the artifact content directly into session state.
+
+---
+
+### Pattern 4: Externalized Prompt Management & Template Sanitization (`prompt_manager.py`)
+- **Location**: `sdaa/src/utils/prompt_manager.py`, `sdaa/src/agents/workers.py`
+- **Concept**: Decouples system prompts from application code, managing them in **Langfuse**.
+- **Key Challenges & Solutions**:
+  - **Dynamic Fetching**: `PromptManager.get_prompt_object(name, label)` retrieves live prompt versions from Langfuse.
+  - **Trace Prompt Linking**: Compiled prompt objects are passed into `InstrumentedGemini` and `OpenRouterModel` to attach prompt metadata (ID, version) directly to OpenTelemetry generation spans.
+  - **ADK Template Sanitization**: Google ADK attempts to parse curly braces `{variable}` as context template variables. If an LLM prompt contains raw code snippets or identifiers in braces (e.g. `{user_id}`), ADK crashes with `KeyError`.
+  - **Fix**: Regex sanitization translates `{identifier}` into `(identifier)` prior to agent instantiation:
+    ```python
+    prompt = re.sub(r"\{([a-zA-Z_]\w*)\}", r"(\1)", prompt)
+    ```
+
+---
+
+### Pattern 5: OpenRouter API Adapter & Reasoning Capabilities (`openrouter_model.py`)
+- **Location**: `sdaa/src/utils/openrouter_model.py`
+- **Concept**: An adapter mapping Google ADK request/response objects to OpenAI-compatible Chat Completions format for OpenRouter endpoints.
+- **Key Features**:
+  1. **Schema Translation**: Converts ADK `FunctionDeclaration` objects into OpenAI `tools` definitions.
+  2. **Reasoning Persistence (`grok-4.1-fast`)**: For models supporting reasoning tokens (like Grok), injects `extra_body={"reasoning": {"enabled": True}}`, captures `reasoning_details`, and persists them in ADK `Content` via `inline_data` parts so reasoning context is preserved across multi-turn tool calls.
+  3. **Strict Payload Compliance**: Certain OpenAI-compatible APIs (like xAI on OpenRouter) fail with `untagged enum ModelInput` if an assistant tool call message has `content: None`. `OpenRouterModel` explicitly normalizes missing content to empty strings (`content: ""`).
+
+---
+
+## 3. Observability Architecture
+
+SDAA features unified **OpenTelemetry (OTEL)** tracing (`sdaa/src/core/instrumentation.py`):
+- Connects both **Langfuse** (`/api/public/otel/v1/traces`) and **LangSmith** exporters to the same global OpenTelemetry tracer provider.
+- Includes a health-check fallback (`/api/public/health`) that gracefully disables OTLP exporting if the observability backend is unreachable.
+- Log filtering silences noisy SDK warnings (such as `google-genai` non-text response parts during tool calls) while preserving critical error output.

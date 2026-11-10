@@ -1,19 +1,15 @@
 # AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+## Project context
 
-## Project context and continuity
+DocsDiver (SDAA) is a Google ADK Python CLI that audits Markdown documentation and generates specialist findings plus a security threat model/test plan.
 
-DocsDiver, also called SDAA (Security Documentation Analysis Agent), is a Python CLI built on Google ADK. It audits a Markdown documentation corpus with specialist LLM agents and produces worker findings and a synthesized security threat model/test plan.
-
-- Read `archive/PROGRESS.md` (the project history) at session start and consult the active plan in `docs/plans/` before planned implementation work; `archive/IMPLEMENTATION_PLAN.md` is the original, partly stale plan. After completing a plan phase, append its outcome and next steps to `archive/PROGRESS.md`.
-- Append a dated, short entry to `LOG_BOOK.md` for completed features or fixes outside the implementation plan.
-- `README.md` describes usage; `docs/` contains architecture, configuration, extension, and observability guides. Some descriptions are historical: check the source before relying on them. `ROADMAP.md` distinguishes current limitations from proposed capabilities; roadmap features are not necessarily implemented.
-- `llms.txt` links to Google ADK documentation.
+- Read `archive/PROGRESS.md` at session start and the active plan in `docs/plans/` before implementation. Record completed phases and next steps in the progress file; log other completed features/fixes in `LOG_BOOK.md`.
+- `README.md` covers usage; `docs/` covers architecture, configuration, extension, and observability. Verify historical descriptions against source. `ROADMAP.md` describes proposals; `archive/IMPLEMENTATION_PLAN.md` is partly stale.
 
 ## Development commands
 
-Run from the repository root: corpus and output paths resolve relative to the working directory. Use a virtual environment when running Python outside a container.
+Run from the repository root; relative corpus/output paths depend on the working directory. Use a virtual environment outside containers.
 
 ```bash
 python3 -m venv .venv
@@ -23,7 +19,7 @@ python -m pip install -r requirements.lock
 cp -n .env.example .env
 ```
 
-`requirements.txt` declares direct dependencies; `requirements.lock` pins the resolved environment. Its header records the regeneration command: `uv pip compile requirements.txt -o requirements.lock --python .venv/bin/python`. There is no package/build step or configured lint, formatter, or type-check command. The `scripts/check_types*.py` files inspect ADK SDK types; they are not static type checks.
+`requirements.txt` declares dependencies; `requirements.lock` pins them. Regenerate with `uv pip compile requirements.txt -o requirements.lock --python .venv/bin/python`. No build, lint, formatter, or type-check workflow is configured; `scripts/check_types*.py` only inspect SDK types.
 
 ### Run the CLI
 
@@ -32,24 +28,20 @@ python main.py                                  # Interactive; defaults to OpenR
 python main.py -m gemini                        # Use Gemini for all agents
 python main.py -m openrouter --headless --no-rich
 python main.py -m mock --toc-only --no-rich      # Index with a local mock model
-python main.py --skip-map-maker                 # Reuse the configured ToC
 python main.py --coordinator-only --headless --no-rich
 ```
 
-- Set `OPENROUTER_API_KEY` or `GEMINI_API_KEY` for the selected provider. Both accept comma-separated keys for bounded rotation on HTTP 429.
-- Configure corpus, outputs, per-agent models, and prompt bindings in `sdaa/config/config.yaml`; these do not have CLI path overrides.
-- `--headless` exits before chat. It succeeds (exit 0) only with a valid ToC and four valid outputs (three worker artifacts and the report; valid means present, non-empty, not a `SKIPPED:` placeholder), and prints each output as `reused` or `generated`. Failures exit 1; contradictory flags exit 2. It is not a content-quality or freshness check.
-- `--coordinator-only` skips indexing and worker LLM calls, but still runs worker artifact-loader agents before synthesis. It needs a valid ToC and three valid worker artifacts and exits 1 otherwise; it never writes placeholders.
-- `--refresh-toc` rebuilds the ToC and the whole audit; `--refresh-audit` reruns workers and synthesis against a valid ToC. Replaced files are kept as `<name>.prev`. `--refresh-toc` conflicts with `--skip-map-maker`/`--coordinator-only`, and `--refresh-audit` with `--coordinator-only`/`--toc-only` (exit 2).
-- Mock mode replaces model generation, **not prompt retrieval**. A complete mock audit still needs appropriate prompts or test stubs; the standalone mock CLI is not a reliable offline end-to-end smoke test.
+- Configure paths, per-agent models, and prompt bindings in `sdaa/config/config.yaml` (no CLI path overrides). `.env` supplies provider and Langfuse credentials; `OPENROUTER_API_KEY`/`GEMINI_API_KEY` accept comma-separated keys for HTTP 429 rotation.
+- `--headless` requires a valid ToC, three nonempty worker artifacts, and a nonempty report; `SKIPPED:` placeholders are invalid. It labels outputs `reused`/`generated`. Failures exit 1; conflicting flags exit 2. Success does not establish freshness or quality.
+- `--skip-map-maker` requires a valid existing ToC. `--coordinator-only` additionally requires valid worker artifacts and reruns synthesis without worker LLM calls.
+- `--refresh-toc` rebuilds indexing and the audit; `--refresh-audit` reruns workers/synthesis. Replaced outputs become `<name>.prev`. Refresh-ToC conflicts with skip-map-maker/coordinator-only; refresh-audit conflicts with coordinator-only/toc-only.
+- Mock mode replaces generation, **not Langfuse prompt retrieval**. Full offline audits need prompt stubs; see the headless tests.
 
 ### Tests and syntax checks
 
-Tests use pytest, pytest-asyncio, and unittest-style classes collected by pytest. Prefer `python -m pytest tests ...` over bare `pytest` so the root is importable and ad-hoc scripts under `scripts/` are not collected.
+Use `python -m pytest tests ...` to preserve root imports and avoid collecting diagnostic scripts. **Run the full suite in a disposable copy:** reporting tests delete `output/`, and Map Maker tests remove the ToC. Tests assume the default YAML and `docs-for-testing/` corpus.
 
-**Run the full suite in a disposable copy.** `tests/test_reporting_tools.py` deletes the working directory's `output/` in setup; `tests/test_map_maker.py` removes the configured ToC. Several tests depend on the default YAML settings and `docs-for-testing/` corpus.
-
-From the repository root, with `.venv` already populated:
+With `.venv` populated, run the suite without touching local outputs or copying the repository's `.env`:
 
 ```bash
 repo_root="$PWD"
@@ -64,58 +56,74 @@ tar --exclude='./.git' --exclude='./.venv' --exclude='./.gemini' \
 )
 ```
 
-For focused checks that do not delete repository outputs:
+Focused checks (no repository-output deletion):
 
 ```bash
 python -m pytest tests/test_main_headless.py -q
 python -m pytest tests/test_main_headless.py::test_headless_mock_audit_writes_all_outputs -q
-python -m pytest tests/test_openrouter_payload.py -q
 python -m compileall -q main.py sdaa tests scripts
 ```
 
-`tests/conftest.py` supplies dummy OpenRouter/OpenAI credentials and adjusts tracing settings. Headless tests additionally stub Langfuse prompts and redirect outputs with `tmp_path`; retain that isolation when extending them.
+`tests/conftest.py` supplies dummy credentials/tracing settings. Headless tests stub prompts and isolate outputs with `tmp_path`.
 
-Opt-in live diagnostics (not offline tests): `python scripts/validate_connections.py` checks both providers, `python scripts/validate_langfuse_conn.py` emits a test span, and `python scripts/test_langsmith_tracing.py` exercises tracing.
+Live diagnostics: `python scripts/validate_connections.py`, `python scripts/validate_langfuse_conn.py`, and `python scripts/test_langsmith_tracing.py`.
 
-## Architecture and cross-module contracts
+## Mandatory Task Logging Protocol
 
-Module paths below are relative to `sdaa/src/` unless otherwise specified.
+After completing any code modification, bug fix, refactoring, or feature implementation, you **MUST** execute the `dev-logbook` script as your final action before marking a task complete or providing your final response.
 
-### Execution pipeline and reuse
+### Execution Command
+Run the script using `run_command` (or your shell execution tool):
+```bash
+bash .agents/skills/dev-logbook/scripts/log.sh "<Title Change of>" "<Brief and changed of summary was what why>"
+```
 
-The root `main.py` owns orchestration, ADK runners, in-memory sessions/memory, and the Rich/plain-text interface (`ui/rich_chat.py`). Its three stages use separate pre-chat and interactive agent trees:
+### Protocol Rules & Constraints
 
-1. **Indexing:** `core/map_maker.py` lists Markdown through `tools/file_ops.py`, reads whole files, and calls a model sequentially for each summary/tag set. It writes `output/ToC.json` as `{"files": [{"path": "...", "summary": "...", "tags": ["...", "...", "..."]}]}`. Paths are relative to the corpus root; tags are normalized to exactly three. The indexing prompt is local to Map Maker.
-2. **Pre-chat audit:** `build_prechat_audit_agent()` constructs an ADK `SequentialAgent`: permissions → constraints → boundaries → synthesizer. Worker `output_key` values populate session state as `permissions_report`, `constraints_report`, and `boundaries_report`; the synthesizer compiles these into its prompt.
-3. **Interactive review:** A separate coordinator (`agents/coordinator.py`) has worker `sub_agents` for delegation and tools for reading documentation and writing the final report. It shares the session/memory services with the pre-chat runner; sessions do not persist across processes.
+Always Use the Script: Never edit LOGBOOK.md directly using text editing tools (write_to_file, replace_file_content, etc.). Direct edits bypass timestamping, branch detection, and formatting standardization.
+Timing: Run the logging command immediately after verifying your changes pass build/test checks, but before concluding your turn.
 
-The CLI skips indexing when the ToC is valid (`core/output_validation.py`: parseable, non-empty, every path an existing file inside the docs root, three tags, no error summaries); a missing or invalid ToC is regenerated unless `--skip-map-maker`/`--coordinator-only` is set, in which case the run exits 1. Pre-chat is skipped when all three worker artifacts and the final report are valid, unless `--coordinator-only` forces synthesis. During pre-chat, a valid worker artifact selects `utils/artifact_loader_model.py` instead of a provider model: it replays a reporting-tool call and then a completion acknowledgement, and that acknowledgement (not the artifact body) is what reaches session state. The synthesizer therefore reads the artifact files from disk (`_build_synthesis_prompt`). Any output about to be regenerated is first renamed to `<name>.prev` (one generation), so a failed run leaves it missing rather than stale. Validity is not freshness: nothing invalidates outputs when documents, models, or prompts change, so use `--refresh-toc`/`--refresh-audit` or a separate output directory for a clean experiment.
+### Log Content Quality:
 
-### Tools, outputs, and configuration
+Title: A concise headline describing the work (e.g., "Fix JWT expiration edge case" or "Add user profile avatar upload").
+Summary: 1–2 sentences explaining why the change was necessary and what core logic was updated.
 
-`core/config_loader.py` is an import-time singleton and loads `.env`. Its directory helpers create the configured paths. Defaults in the checked-in YAML audit `docs-for-testing/` (fixture input, not the developer guides in `docs/`) and write under `output/`.
+## Architecture
 
-`tools/reporting.py` accepts Markdown strings, not the Pydantic finding classes declared alongside it. The worker contract ties together agent name, session-state key, tool argument, and artifact:
+Module paths below are relative to `sdaa/src/`; `main.py` is at the repository root.
 
-- Permissions: `permissions_report` → `report_permissions_matrix(findings)` → `artifacts/permissions_agent.md`.
-- Constraints: `constraints_report` → `report_invariance_findings(findings)` → `artifacts/constraints_agent.md`.
-- Boundaries: `boundaries_report` → `report_boundary_analysis(boundaries_markdown)` → `artifacts/boundaries_agent.md`.
-- Synthesis: `generate_final_report(report_content)` → `reports/Security_Threat_Model.md`.
+`main.py` orchestrates three stages, ADK runners, shared in-memory sessions/memory, and `ui/rich_chat.py`:
 
-These directories are resolved under `system.output_dir` using the configured reports/artifacts directory names. Reporting tools return status/error strings; a tool failure does not necessarily raise.
+1. **Index:** `core/map_maker.py` reads corpus Markdown through `tools/file_ops.py`, summarizes whole files sequentially, and writes `output/ToC.json`. Each `files` entry has a corpus-relative `path`, `summary`, and exactly three `tags`.
+2. **Pre-chat audit:** An ADK `SequentialAgent` runs permissions → constraints → boundaries → synthesis. Workers in `agents/workers.py` set `permissions_report`, `constraints_report`, and `boundaries_report` state keys.
+3. **Chat:** A separate coordinator in `agents/coordinator.py` delegates to worker sub-agents. Sessions do not persist across processes.
 
-`tools/file_ops.py` enforces a single rule via `resolve_corpus_path`: paths must resolve inside `docs_root` without symlinks (resolved != lexical or !is_relative_to). Symlinked files/directories are skipped with a logged warning during listing and are never readable. The only output file that is ever served is the bare configured ToC filename; all other paths (including sub/ToC.json and ../x/ToC.json) are subject to the normal rule. Tool denials return an access-denied string and log a warning; internal callers (Map Maker, toc_problems) raise. Listing is globally sorted for deterministic ToC order.
+Valid outputs are reused unless refreshed; `core/output_validation.py` defines validity, not freshness. Existing worker artifacts use `utils/artifact_loader_model.py` to replay reporting-tool calls. Its final state contains an acknowledgement, so synthesis reads artifact bodies from disk. Changed documents/models/prompts do not automatically invalidate outputs.
 
-### Model and prompt boundaries
+### Configuration and outputs
 
-`core/model_factory.py` selects `agents.<agent_name>.<provider>` and returns an ADK `BaseLlm`: `InstrumentedGemini`, `OpenRouterModel`, or `MockModel`. Model fallback names are hardcoded in the factory; provider-level `model_name` YAML values are not used there. `system.batch_size` and `notebook_dir` are also not implemented pipeline controls on this branch.
+`core/config_loader.py` loads `.env` and YAML as an import-time singleton. Defaults audit `docs-for-testing/`, not the developer guides in `docs/`, and write under `output/`.
 
-`utils/openrouter_model.py` translates ADK/Google GenAI messages and tool schemas to OpenAI-compatible requests. Preserve provider tool-call IDs, array-schema `items`, model-role responses, and empty-string assistant content for tool calls. Grok reasoning is round-tripped via `inline_data` using `application/x-reasoning-details`. Provider exceptions must propagate, not become report text. `InstrumentedGemini` wraps an inner Gemini client by composition; `core/key_rotator.py` caches rotators per provider.
+`tools/reporting.py` accepts Markdown strings, not its declared Pydantic finding classes:
 
-Workers and both coordinators obtain instructions through the lazy singleton in `utils/prompt_manager.py`. Langfuse names are `permissions-agent`, `negative-constraints-agent`, `security-boundaries-agent`, `coordinator-agent`, and `report-synthesizer`, normally at label `production`. The synthesizer name/label are hardcoded in `coordinator.py`; other bindings come from YAML. Retrieval failure currently produces error-text instructions, not usable local fallback prompts.
+- Workers write `artifacts/{permissions,constraints,boundaries}_agent.md`.
+- `generate_final_report(report_content)` writes `reports/Security_Threat_Model.md`.
+- Directory names resolve under `system.output_dir`; tools can return error strings without raising.
 
-ADK interprets braces as state substitutions. Agent factories sanitize or escape braces in fetched instructions; synthesis sanitizes injected report bodies before Langfuse compilation. Preserve this distinction when changing prompt assembly.
+`tools/file_ops.py` authorizes every path through `resolve_corpus_path`: it must resolve inside `system.docs_root` with no symlink. Listing is sorted and skips symlinks with a warning. Only the bare configured ToC filename is served from output; it is not a general artifact reader. Tools return an access-denied string (and log a warning); internal callers (Map Maker, `toc_problems`) raise.
 
-`core/instrumentation.py` sets up shared OpenTelemetry tracing for LangSmith and Langfuse, with a Langfuse health check before OTLP export. Prompt objects are separately attached to model generation spans. Disabling observability does not provide missing agent prompts.
+### Models and prompts
 
-Adding a worker therefore requires coordinated updates to its factory and state key, reporting tool/file, YAML model/prompt binding, interactive coordinator delegation, pre-chat ordering/replay mapping and expected-output list, plus the remote synthesis/coordinator prompts—not just a new agent class.
+`core/model_factory.py` selects `agents.<agent_name>.<provider>` and returns an ADK `BaseLlm` adapter or mock. Provider-level YAML `model_name`, `system.batch_size`, and `notebook_dir` are not active pipeline controls.
+
+`utils/openrouter_model.py` translates ADK messages/tool schemas to OpenAI-compatible requests; preserve tool-call IDs, schema `items`, reasoning round-trips, and empty-string assistant content for tool calls. Provider failures must propagate. `utils/instrumented_gemini.py` wraps Gemini by composition; both adapters use cached provider key rotators.
+
+`utils/prompt_manager.py` fetches Langfuse instructions; retrieval failure yields error-text instructions, not a usable local fallback. Bindings come from YAML except `report-synthesizer`/`production`, hardcoded in the coordinator. Preserve brace sanitization/escaping: ADK interprets braces as state substitutions.
+
+`core/instrumentation.py` shares OpenTelemetry tracing across LangSmith/Langfuse. Tracing and prompt retrieval are separate; disabling observability does not supply prompts.
+
+Adding a worker requires aligning its factory/state key, reporting tool, YAML bindings, both agent trees, output validation/replay mapping, and remote coordinator/synthesis prompts.
+
+## Upstream documentation
+
+Prefer the link indexes in `docs/llms-txt/`: `ADK-llms.txt` for ADK, `openrouter-llms.txt` for provider integration, and `langfuse-llms.txt` for prompts/tracing. Open their linked pages for detail; root `llms.txt` is older. These indexes track newer upstream releases: installed source at `requirements.lock` versions is authoritative when APIs differ.

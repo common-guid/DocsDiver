@@ -16,35 +16,35 @@ providers:
   gemini:
     model_name: "gemini-2.5-pro"
   openrouter:
-    base_url: "https://openrouter.ai/api/v1"
-    model_name: "google/gemini-2.5-pro"
+    base_url: "https://us.openrouter.ai/api/v1"
+    model_name: "deepseek/deepseek-v4.1-flash-1017"
 
 # Agent-Specific Model Selection
 # Note: The CLI flag -m (gemini|openrouter) selects which key to use for each agent.
 agents:
   map_maker:
-    openrouter: "google/gemma-3-27b-it"
+    openrouter: "deepseek/deepseek-v4.1-flash-1017"
     gemini: "gemini-2.0-flash-001"
   coordinator:
-    openrouter: "x-ai/grok-4.1-fast"
+    openrouter: "deepseek/deepseek-v4.1-flash-1017"
     gemini: "gemini-2.5-pro"
     prompt:
       name: "coordinator-agent"
       label: "production"
   permissions_agent:
-    openrouter: "x-ai/grok-4.1-fast"
+    openrouter: "deepseek/deepseek-v4.1-flash-1017"
     gemini: "gemini-2.5-flash"
     prompt:
       name: "permissions-agent"
       label: "production"
   constraints_agent:
-    openrouter: "x-ai/grok-4.1-fast"
+    openrouter: "deepseek/deepseek-v4.1-flash-1017"
     gemini: "gemini-2.5-flash"
     prompt:
       name: "negative-constraints-agent"
       label: "production"
   boundaries_agent:
-    openrouter: "x-ai/grok-4.1-fast"
+    openrouter: "deepseek/deepseek-v4.1-flash-1017"
     gemini: "gemini-2.5-flash"
     prompt:
       name: "security-boundaries-agent"

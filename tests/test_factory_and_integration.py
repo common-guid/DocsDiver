@@ -64,8 +64,9 @@ class TestIntegration(unittest.TestCase):
         # Setup mocks
         mock_get_model.return_value = MockModel(model="test-mock")
 
-        # Run main
-        asyncio.run(main())
+        # Run main (the mocked config has no real ToC, so stub the ToC gate)
+        with patch('main.toc_problems', return_value=[]):
+            asyncio.run(main())
 
         # Verify get_model_for_agent was NOT called for map maker because of skip-map-maker?
         # Wait, if skip-map-maker is present, we skip map maker logic.
@@ -89,7 +90,10 @@ class TestIntegration(unittest.TestCase):
         # Mock exists for toc
         mock_config.get_output_dir.return_value = "/tmp"
         mock_config.get.return_value = "ToC.json"
-        with patch('os.path.exists', return_value=False): # Force map maker run
+        # First toc_problems call (is the ToC usable?) says no -> Map Maker runs; second (gate) says yes.
+        with patch('main.toc_problems', side_effect=[["missing"], []]), \
+             patch('main.audit_output_problems', return_value=[]), \
+             patch('os.path.exists', return_value=False): # Force map maker run
             # Also mock user input to exit immediately
             mock_ui_instance = mock_ui.return_value
             mock_ui_instance.ask_user.return_value = "exit"

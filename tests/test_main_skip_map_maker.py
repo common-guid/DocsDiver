@@ -13,7 +13,7 @@ from sdaa.src.core.config_loader import config_loader
 from google.adk.models import BaseLlm
 
 
-def test_main_generates_toc_when_missing(monkeypatch, tmp_path):
+def test_main_generates_toc_when_missing(monkeypatch, tmp_path, write_valid_toc):
     """When no ToC exists, main should invoke generate_toc and create it.
 
     This exercises the default behavior with --toc-only so we avoid
@@ -39,7 +39,7 @@ def test_main_generates_toc_when_missing(monkeypatch, tmp_path):
     async def fake_generate_toc(model=None):  # pragma: no cover - behavior validated via side effects
         calls["count"] += 1
         output_dir.mkdir(parents=True, exist_ok=True)
-        toc_path.write_text("{}", encoding="utf-8")
+        write_valid_toc(toc_path)
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
@@ -53,7 +53,7 @@ def test_main_generates_toc_when_missing(monkeypatch, tmp_path):
     assert toc_path.exists()
 
 
-def test_main_skips_toc_generation_when_file_exists(monkeypatch, tmp_path):
+def test_main_skips_toc_generation_when_file_exists(monkeypatch, tmp_path, write_valid_toc):
     """If a ToC already exists at the resolved path, main should skip Map Maker."""
 
     def fake_get_output_dir() -> str:
@@ -68,7 +68,7 @@ def test_main_skips_toc_generation_when_file_exists(monkeypatch, tmp_path):
     toc_path = output_dir / toc_filename
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    toc_path.write_text("{}", encoding="utf-8")
+    write_valid_toc(toc_path)
     artifacts_dir = output_dir / config_loader.get("system.artifacts_dir", "artifacts")
     reports_dir = output_dir / config_loader.get("system.reports_dir", "reports")
     artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -95,37 +95,75 @@ def test_main_skips_toc_generation_when_file_exists(monkeypatch, tmp_path):
     assert toc_path.exists()
 
 
-def test_main_honors_skip_flag_even_without_toc(monkeypatch, tmp_path):
-    """With --skip-map-maker, main should not call generate_toc even if ToC is missing."""
-
-    def fake_get_output_dir() -> str:
-        path = tmp_path / "out_skip_flag"
-        os.makedirs(path, exist_ok=True)
-        return str(path)
-
-    monkeypatch.setattr(config_loader, "get_output_dir", fake_get_output_dir)
-
-    toc_filename = config_loader.get("system.toc_filename", "ToC.json")
-    output_dir = tmp_path / "out_skip_flag"
-    toc_path = output_dir / toc_filename
-
-    if toc_path.exists():
-        toc_path.unlink()
-
+def test_skip_map_maker_without_toc_exits_1_and_does_not_generate(monkeypatch, tmp_path):
+    """--skip-map-maker means 'use the existing ToC'; a missing ToC is a failure, not a pass."""
+    toc_path = tmp_path / "out" / config_loader.get("system.toc_filename", "ToC.json")
     calls = {"count": 0}
 
-    async def fake_generate_toc(model=None):  # pragma: no cover - we assert no calls
+    async def fake_generate_toc(model=None):  # pragma: no cover - must not be called
         calls["count"] += 1
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
-
     monkeypatch.setattr(sys, "argv", ["main.py", "--skip-map-maker", "--toc-only", "--no-rich"])
+
+    with pytest.raises(SystemExit) as exc:
+        asyncio.run(app.main())
+
+    assert exc.value.code == 1
+    assert calls["count"] == 0
+    assert not toc_path.exists()
+
+
+def test_invalid_toc_is_regenerated_and_old_one_kept_as_prev(monkeypatch, tmp_path, write_valid_toc):
+    toc_path = tmp_path / "out" / config_loader.get("system.toc_filename", "ToC.json")
+    toc_path.write_text("{}", encoding="utf-8")  # invalid: no files
+
+    async def fake_generate_toc(model=None):
+        assert not toc_path.exists(), "the old ToC must be moved aside before regenerating"
+        write_valid_toc(toc_path)
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    monkeypatch.setattr(sys, "argv", ["main.py", "--toc-only", "--no-rich"])
 
     asyncio.run(app.main())
 
+    assert app.toc_problems(str(toc_path)) == []
+    assert (tmp_path / "out" / (toc_path.name + ".prev")).read_text(encoding="utf-8") == "{}"
+
+
+@pytest.mark.parametrize("flags", [["--skip-map-maker"], ["--coordinator-only"]])
+def test_invalid_toc_with_skip_flags_exits_1_without_generating(monkeypatch, tmp_path, flags):
+    toc_path = tmp_path / "out" / config_loader.get("system.toc_filename", "ToC.json")
+    toc_path.write_text('{"files": []}', encoding="utf-8")
+    calls = {"count": 0}
+
+    async def fake_generate_toc(model=None):  # pragma: no cover - must not be called
+        calls["count"] += 1
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    monkeypatch.setattr(sys, "argv", ["main.py", "-m", "mock", *flags, "--headless", "--no-rich"])
+
+    with pytest.raises(SystemExit) as exc:
+        asyncio.run(app.main())
+
+    assert exc.value.code == 1
     assert calls["count"] == 0
-    # ToC should still be absent unless created out-of-band by the user
-    assert not toc_path.exists()
+
+
+def test_toc_generation_failure_exits_1_in_interactive_mode(monkeypatch, tmp_path):
+    async def failing_generate_toc(model=None):
+        raise RuntimeError("provider down")
+
+    def _no_chat(*a, **k):  # pragma: no cover - must never run
+        raise AssertionError("chat must not start after a Map Maker failure")
+
+    monkeypatch.setattr(app, "generate_toc", failing_generate_toc)
+    monkeypatch.setattr(builtins, "input", _no_chat)
+    monkeypatch.setattr(sys, "argv", ["main.py", "-m", "mock", "--no-rich"])
+
+    with pytest.raises(SystemExit) as exc:
+        asyncio.run(app.main())
+    assert exc.value.code == 1
 
 
 class _DummyModel(BaseLlm):
@@ -142,7 +180,7 @@ class _DummyModel(BaseLlm):
 
 
 
-def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, tmp_path):
+def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, tmp_path, write_valid_toc):
     """Ensure that skipping Map Maker with an existing ToC still starts the coordinator.
 
     This simulates the common workflow where a user precomputes ToC.json, then
@@ -162,7 +200,7 @@ def test_skip_map_maker_with_existing_toc_still_initializes_agents(monkeypatch, 
     toc_path = output_dir / toc_filename
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    toc_path.write_text("{}", encoding="utf-8")
+    write_valid_toc(toc_path)
 
     async def fake_generate_toc(model=None):  # pragma: no cover - must not be called
         raise AssertionError("generate_toc should not be called when --skip-map-maker is set")

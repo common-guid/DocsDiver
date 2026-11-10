@@ -6,6 +6,13 @@ import logging
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
+from sdaa.src.core.output_validation import (
+    audit_output_paths,
+    audit_output_problems,
+    set_aside,
+    text_output_problems,
+    toc_problems,
+)
 from sdaa.src.agents.coordinator import (
     create_coordinator_agent,
     create_coordinator_synthesizer
@@ -47,43 +54,20 @@ def suppress_genai_non_text_warning() -> None:
 
     logger.addFilter(_SuppressNonTextWarning())
 
-def _expected_prechat_output_paths() -> list[str]:
-    artifacts_dir = config_loader.get_artifacts_dir()
-    reports_dir = config_loader.get_reports_dir()
-    return [
-        os.path.join(artifacts_dir, "permissions_agent.md"),
-        os.path.join(artifacts_dir, "constraints_agent.md"),
-        os.path.join(artifacts_dir, "boundaries_agent.md"),
-        os.path.join(reports_dir, "Security_Threat_Model.md"),
-    ]
-
-def get_missing_prechat_outputs() -> list[str]:
-    expected_paths = _expected_prechat_output_paths()
-    return [path for path in expected_paths if not os.path.exists(path)]
-
-def build_prechat_audit_agent(provider: str, coordinator_only: bool = False) -> SequentialAgent:
+def build_prechat_audit_agent(provider: str) -> SequentialAgent:
     artifacts_dir = config_loader.get_artifacts_dir()
     
     # helper to decide model for a worker
     def get_worker_model(agent_name: str, artifact_name: str, tool_name: str, tool_arg: str):
         artifact_path = os.path.join(artifacts_dir, artifact_name)
         
-        # If artifact exists, use it (Optimization Goal 1)
-        if os.path.exists(artifact_path):
-            print(f"DEBUG: Found existing artifact for {agent_name}, skipping execution.")
+        # Reuse only a valid artifact (non-empty, not a placeholder); anything else is regenerated.
+        if not text_output_problems(artifact_path):
+            print(f"DEBUG: Found valid artifact for {agent_name}, skipping execution.")
             with open(artifact_path, "r", encoding="utf-8") as f:
                 content = f.read()
             return ArtifactLoaderModel(content=content, tool_name=tool_name, tool_arg_name=tool_arg)
-            
-        # If coordinator only and artifact missing, skip with dummy (Goal 2)
-        if coordinator_only:
-            print(f"DEBUG: Coordinator-only mode: Skipping {agent_name} (artifact missing).")
-            return ArtifactLoaderModel(
-                content=f"SKIPPED: {agent_name} was skipped because --coordinator-only was specified and no artifact was found.",
-                tool_name=tool_name, 
-                tool_arg_name=tool_arg
-            )
-            
+
         # Otherwise use real model
         return get_model_for_agent(agent_name, provider)
 
@@ -122,7 +106,19 @@ async def main():
     parser.add_argument("--coordinator-only", action="store_true", help="Run only the coordinator using existing artifacts, bypassing workers and Map Maker")
     parser.add_argument("--no-rich", action="store_true", help="Disable Rich terminal UI and use plain text output")
     parser.add_argument("--headless", action="store_true", help="Run non-interactively: Map Maker + Pre-chat Audit, write all outputs, then exit. Exit code 0 on success, 1 on failure (missing ToC or outputs).")
+    parser.add_argument("--refresh-toc", action="store_true", help="Rebuild the ToC and then the whole audit; previous outputs are kept as .prev")
+    parser.add_argument("--refresh-audit", action="store_true", help="Rerun all workers and synthesis, reusing a valid ToC; previous outputs are kept as .prev")
     args = parser.parse_args()
+
+    # Contradictory flags are usage errors (exit 2), reported before any I/O.
+    if args.refresh_toc and args.skip_map_maker:
+        parser.error("--refresh-toc cannot be combined with --skip-map-maker")
+    if args.refresh_toc and args.coordinator_only:
+        parser.error("--refresh-toc cannot be combined with --coordinator-only")
+    if args.refresh_audit and args.coordinator_only:
+        parser.error("--refresh-audit cannot be combined with --coordinator-only")
+    if args.refresh_audit and args.toc_only:
+        parser.error("--refresh-audit cannot be combined with --toc-only")
 
     ui = RichUI(no_rich=args.no_rich)
     suppress_genai_non_text_warning()
@@ -136,22 +132,46 @@ async def main():
     output_dir = config_loader.get_output_dir()
     toc_path = os.path.join(output_dir, toc_filename)
 
+    if args.refresh_toc:
+        # Invalidate the index and everything built from it, durably (even with --toc-only).
+        ui.print_status("[Phase 1] --refresh-toc: moving the ToC and audit outputs aside (.prev).")
+        set_aside([toc_path] + audit_output_paths())
+
     if args.skip_map_maker or args.coordinator_only:
-        ui.print_status(f"\n[Phase 1] Skipping Map Maker due to --skip-map-maker flag. Expecting existing ToC at {toc_path}.")
-    elif os.path.exists(toc_path):
-        ui.print_status(f"\n[Phase 1] Skipping Map Maker because existing ToC was found at {toc_path}.")
+        flag = "--skip-map-maker" if args.skip_map_maker else "--coordinator-only"
+        ui.print_status(f"\n[Phase 1] Skipping Map Maker due to {flag}. Expecting a valid ToC at {toc_path}.")
     else:
-        ui.print_status("\n[Phase 1] Initializing Map Maker...")
-        try:
-            # Instantiate model specifically for map_maker
-            map_maker_model = get_model_for_agent("map_maker", args.model)
-            await generate_toc(model=map_maker_model)
-            ui.print_status(f"ToC generation complete. Wrote ToC to {toc_path}.")
-        except Exception as e:
-            ui.print_error(f"generating ToC: {e}")
-            if args.headless:
-                # Pipeline mode: a missing ToC is a hard failure.
+        existing_problems = toc_problems(toc_path)
+        if not existing_problems:
+            ui.print_status(f"\n[Phase 1] Skipping Map Maker because a valid ToC was found at {toc_path}.")
+        else:
+            if os.path.exists(toc_path):
+                ui.print_status(
+                    f"\n[Phase 1] Existing ToC is invalid ({existing_problems[0]}); regenerating. "
+                    f"The previous file is kept as {toc_path}.prev."
+                )
+            ui.print_status("\n[Phase 1] Initializing Map Maker...")
+            # Move the old ToC aside so generate_toc's exists-guard cannot skip it and a
+            # failed run leaves the ToC missing rather than stale.
+            set_aside([toc_path])
+            try:
+                # Instantiate model specifically for map_maker
+                map_maker_model = get_model_for_agent("map_maker", args.model)
+                await generate_toc(model=map_maker_model)
+            except Exception as e:
+                # A missing or partial index is fatal in every mode.
+                ui.print_error(f"generating ToC: {e}")
                 sys.exit(1)
+            ui.print_status(f"ToC generation complete. Wrote ToC to {toc_path}.")
+            if any(not text_output_problems(p) for p in audit_output_paths()):
+                ui.print_status(
+                    "WARNING: audit outputs predate the new ToC; use --refresh-audit to regenerate them."
+                )
+
+    toc_errors = toc_problems(toc_path)
+    if toc_errors:
+        ui.print_error("ToC is not usable:\n  " + "\n  ".join(toc_errors))
+        sys.exit(1)
 
     if args.toc_only:
         ui.print_status("[Phase 1] --toc-only specified; exiting after Map Maker.")
@@ -196,12 +216,33 @@ async def main():
     # Ensure output directories exist
     config_loader.get_reports_dir()
     config_loader.get_artifacts_dir()
-    missing_outputs = get_missing_prechat_outputs()
-    if missing_outputs or args.coordinator_only:
+    output_paths = audit_output_paths()
+    worker_paths, report_path = output_paths[:-1], output_paths[-1]
+    if args.refresh_audit:
+        ui.print_status("[Phase 2.5] --refresh-audit: moving worker artifacts and the report aside (.prev).")
+        set_aside(output_paths)
+
+    if args.coordinator_only:
+        # Coordinator-only reuses the worker artifacts; it never manufactures missing ones.
+        unusable = [p for path in worker_paths for p in text_output_problems(path)]
+        if unusable:
+            ui.print_error(
+                "--coordinator-only needs three valid worker artifacts:\n  " + "\n  ".join(unusable)
+                + "\nRun without --coordinator-only to generate them."
+            )
+            sys.exit(1)
+
+    stale = [path for path in output_paths if text_output_problems(path)]
+    generated = set()
+    if stale or args.coordinator_only:
+        # Synthesis always regenerates the report; set it aside with any invalid output so a run
+        # that fails to rewrite it ends with the report missing, not stale.
+        generated = set(stale) | {report_path}
+        set_aside(sorted(generated))
         ui.print_status(
             "\n[Phase 2.5] Running Pre-chat Audit..."
         )
-        prechat_agent = build_prechat_audit_agent(provider=args.model, coordinator_only=args.coordinator_only)
+        prechat_agent = build_prechat_audit_agent(provider=args.model)
         prechat_runner = Runner(
             agent=prechat_agent,
             app_name="sdaa",
@@ -225,16 +266,23 @@ async def main():
             if args.headless:
                 sys.exit(1)
     else:
-        ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (outputs present).")
+        ui.print_status("\n[Phase 2.5] Skipping Pre-chat Audit (all outputs valid).")
 
+    ui.print_status(
+        "Audit outputs: " + ", ".join(
+            f"{os.path.basename(p)} ({'generated' if p in generated else 'reused'})" for p in output_paths
+        )
+    )
+    problems = audit_output_problems()
     if args.headless:
-        # Non-interactive mode: stop before the interactive session.
-        missing = get_missing_prechat_outputs()
-        if missing:
-            ui.print_error(f"Headless run incomplete. Missing outputs: {', '.join(missing)}")
+        # Non-interactive mode: success means every output is present AND valid.
+        if problems:
+            ui.print_error("Headless run incomplete:\n  " + "\n  ".join(problems))
             sys.exit(1)
-        ui.print_status("\n[Phase 3] Headless run complete. All outputs written.")
+        ui.print_status("\n[Phase 3] Headless run complete. All outputs valid.")
         return
+    if problems:
+        ui.print_status("WARNING: some audit outputs are not valid:\n  " + "\n  ".join(problems))
 
     ui.print_status("\n[Phase 3] Agent Ready. (Type 'exit' to quit)")
 

@@ -6,7 +6,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 DocsDiver, also called SDAA (Security Documentation Analysis Agent), is a Python CLI built on Google ADK. It audits a Markdown documentation corpus with specialist LLM agents and produces worker findings and a synthesized security threat model/test plan.
 
-- Read `PROGRESS.md` at session start and consult `IMPLEMENTATION_PLAN.md` before planned implementation work. After completing a plan phase, record its outcome and next steps in `PROGRESS.md`.
+- Read `archive/PROGRESS.md` (the project history) at session start and consult the active plan in `docs/plans/` before planned implementation work; `archive/IMPLEMENTATION_PLAN.md` is the original, partly stale plan. After completing a plan phase, append its outcome and next steps to `archive/PROGRESS.md`.
 - Append a dated, short entry to `LOG_BOOK.md` for completed features or fixes outside the implementation plan.
 - `README.md` describes usage; `docs/` contains architecture, configuration, extension, and observability guides. Some descriptions are historical: check the source before relying on them. `ROADMAP.md` distinguishes current limitations from proposed capabilities; roadmap features are not necessarily implemented.
 - `llms.txt` links to Google ADK documentation.
@@ -38,8 +38,9 @@ python main.py --coordinator-only --headless --no-rich
 
 - Set `OPENROUTER_API_KEY` or `GEMINI_API_KEY` for the selected provider. Both accept comma-separated keys for bounded rotation on HTTP 429.
 - Configure corpus, outputs, per-agent models, and prompt bindings in `sdaa/config/config.yaml`; these do not have CLI path overrides.
-- `--headless` exits before chat, fails on propagated audit exceptions or missing expected worker/report files, and otherwise returns success. It is not a content-quality or freshness check.
-- `--coordinator-only` skips indexing and worker LLM calls, but still runs worker artifact-loader agents before synthesis. Missing artifacts become `SKIPPED` placeholders.
+- `--headless` exits before chat. It succeeds (exit 0) only with a valid ToC and four valid outputs (three worker artifacts and the report; valid means present, non-empty, not a `SKIPPED:` placeholder), and prints each output as `reused` or `generated`. Failures exit 1; contradictory flags exit 2. It is not a content-quality or freshness check.
+- `--coordinator-only` skips indexing and worker LLM calls, but still runs worker artifact-loader agents before synthesis. It needs a valid ToC and three valid worker artifacts and exits 1 otherwise; it never writes placeholders.
+- `--refresh-toc` rebuilds the ToC and the whole audit; `--refresh-audit` reruns workers and synthesis against a valid ToC. Replaced files are kept as `<name>.prev`. `--refresh-toc` conflicts with `--skip-map-maker`/`--coordinator-only`, and `--refresh-audit` with `--coordinator-only`/`--toc-only` (exit 2).
 - Mock mode replaces model generation, **not prompt retrieval**. A complete mock audit still needs appropriate prompts or test stubs; the standalone mock CLI is not a reliable offline end-to-end smoke test.
 
 ### Tests and syntax checks
@@ -88,7 +89,7 @@ The root `main.py` owns orchestration, ADK runners, in-memory sessions/memory, a
 2. **Pre-chat audit:** `build_prechat_audit_agent()` constructs an ADK `SequentialAgent`: permissions → constraints → boundaries → synthesizer. Worker `output_key` values populate session state as `permissions_report`, `constraints_report`, and `boundaries_report`; the synthesizer compiles these into its prompt.
 3. **Interactive review:** A separate coordinator (`agents/coordinator.py`) has worker `sub_agents` for delegation and tools for reading documentation and writing the final report. It shares the session/memory services with the pre-chat runner; sessions do not persist across processes.
 
-The CLI and Map Maker skip indexing whenever the ToC exists. Pre-chat is skipped when all three worker files and the final report exist, unless `--coordinator-only` forces synthesis. During pre-chat, existing worker files select `utils/artifact_loader_model.py` instead of a provider model: it emits a reporting-tool call and then a completion acknowledgement. That acknowledgement, not the artifact body, can become the worker's session-state output. Reuse is existence-based, with no automatic invalidation when documents, models, or prompts change; use a separate output directory for a clean experiment rather than deleting user artifacts.
+The CLI skips indexing when the ToC is valid (`core/output_validation.py`: parseable, non-empty, every path an existing file inside the docs root, three tags, no error summaries); a missing or invalid ToC is regenerated unless `--skip-map-maker`/`--coordinator-only` is set, in which case the run exits 1. Pre-chat is skipped when all three worker artifacts and the final report are valid, unless `--coordinator-only` forces synthesis. During pre-chat, a valid worker artifact selects `utils/artifact_loader_model.py` instead of a provider model: it replays a reporting-tool call and then a completion acknowledgement, and that acknowledgement (not the artifact body) is what reaches session state. The synthesizer therefore reads the artifact files from disk (`_build_synthesis_prompt`). Any output about to be regenerated is first renamed to `<name>.prev` (one generation), so a failed run leaves it missing rather than stale. Validity is not freshness: nothing invalidates outputs when documents, models, or prompts change, so use `--refresh-toc`/`--refresh-audit` or a separate output directory for a clean experiment.
 
 ### Tools, outputs, and configuration
 

@@ -67,7 +67,7 @@ def _isolate_output_dirs(monkeypatch, tmp_path):
     return output_dir
 
 
-def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path):
+def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path, write_valid_toc):
     """--headless with the mock provider runs the full audit non-interactively.
 
     MockModel writes the three worker artifacts and the coordinator writes
@@ -78,7 +78,7 @@ def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path):
     toc_path = output_dir / config_loader.get("system.toc_filename", "ToC.json")
 
     async def fake_generate_toc(model=None):
-        toc_path.write_text('{"files": []}', encoding="utf-8")
+        write_valid_toc(toc_path)
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
@@ -104,14 +104,12 @@ def test_headless_mock_audit_writes_all_outputs(monkeypatch, tmp_path):
     assert (reports_dir / "Security_Threat_Model.md").exists()
 
 
-def test_headless_exits_nonzero_when_outputs_missing(monkeypatch, tmp_path):
+def test_headless_exits_nonzero_when_outputs_missing(monkeypatch, tmp_path, write_valid_toc):
     """--headless must exit 1 when the audit leaves outputs missing."""
     output_dir = _isolate_output_dirs(monkeypatch, tmp_path)
 
     async def fake_generate_toc(model=None):
-        (output_dir / config_loader.get("system.toc_filename", "ToC.json")).write_text(
-            '{"files": []}', encoding="utf-8"
-        )
+        write_valid_toc(output_dir / config_loader.get("system.toc_filename", "ToC.json"))
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
 
@@ -128,7 +126,7 @@ def test_headless_exits_nonzero_when_outputs_missing(monkeypatch, tmp_path):
     assert exc.value.code == 1
 
 
-def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatch, tmp_path):
+def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatch, tmp_path, write_valid_toc):
     """A raised pre-chat failure must exit 1 even if outputs already exist.
 
     The missing-output gate already exits 1 when files are absent. This test
@@ -136,9 +134,7 @@ def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatc
     raises, and stale outputs must not turn that failure into exit 0.
     """
     output_dir = _isolate_output_dirs(monkeypatch, tmp_path)
-    (output_dir / config_loader.get("system.toc_filename", "ToC.json")).write_text(
-        '{"files": []}', encoding="utf-8"
-    )
+    write_valid_toc(output_dir / config_loader.get("system.toc_filename", "ToC.json"))
     artifact_text = "existing artifact\n"
     report_text = "existing report\n"
     for name in (
@@ -163,7 +159,242 @@ def test_headless_exits_nonzero_when_prechat_raises_and_outputs_exist(monkeypatc
     with pytest.raises(SystemExit) as exc:
         asyncio.run(app.main())
     assert exc.value.code == 1
-    assert report_path.read_text(encoding="utf-8") == report_text
-    assert "TOKEN_422_SYNTHETIC" not in report_path.read_text(encoding="utf-8")
-    assert "Error calling OpenRouter:" not in report_path.read_text(encoding="utf-8")
+    # The report is set aside before synthesis, so a failed run leaves it missing (never stale
+    # and never overwritten with the error); the previous text survives as .prev.
+    assert not report_path.exists()
+    prev = report_path.with_name(report_path.name + ".prev")
+    assert prev.read_text(encoding="utf-8") == report_text
+    assert "TOKEN_422_SYNTHETIC" not in prev.read_text(encoding="utf-8")
+    assert "Error calling OpenRouter:" not in prev.read_text(encoding="utf-8")
 
+
+
+# --- Validated reuse and the trustworthy-completion gate (Tactical 3) ---
+from google.adk.agents import LlmAgent
+from google.adk.models import BaseLlm, LlmResponse
+from google.genai import types
+
+ARTIFACTS = ("permissions_agent.md", "constraints_agent.md", "boundaries_agent.md")
+
+
+def _seed(monkeypatch, tmp_path, write_valid_toc, artifacts=None, report="old report\n"):
+    """Valid ToC plus the given artifact contents (name -> text; default all valid)."""
+    output_dir = _isolate_output_dirs(monkeypatch, tmp_path)
+    write_valid_toc(output_dir / config_loader.get("system.toc_filename", "ToC.json"))
+    artifacts = artifacts if artifacts is not None else {n: f"valid {n}\n" for n in ARTIFACTS}
+    for name, text in artifacts.items():
+        (output_dir / "artifacts" / name).write_text(text, encoding="utf-8")
+    if report is not None:
+        (output_dir / "reports" / "Security_Threat_Model.md").write_text(report, encoding="utf-8")
+    return output_dir
+
+
+def _run(monkeypatch, *flags):
+    monkeypatch.setattr(sys, "argv", ["main.py", "-m", "mock", "--no-rich", *flags])
+    asyncio.run(app.main())
+
+
+def _forbid_model_calls(monkeypatch):
+    async def boom(*_a, **_k):  # pragma: no cover - must not run
+        raise AssertionError("no model/pre-chat run expected")
+
+    monkeypatch.setattr(app.RichUI, "stream_response", boom)
+
+
+def test_empty_artifact_is_regenerated_others_replayed(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "  \n",
+        "constraints_agent.md": "valid constraints\n",
+        "boundaries_agent.md": "valid boundaries\n",
+    })
+    _run(monkeypatch, "--headless")
+    assert "# RBAC Analysis" in (out / "artifacts" / "permissions_agent.md").read_text(encoding="utf-8")
+    assert (out / "artifacts" / "constraints_agent.md").read_text(encoding="utf-8") == "valid constraints\n"
+    assert "Master Audit Report" in (out / "reports" / "Security_Threat_Model.md").read_text(encoding="utf-8")
+
+
+def test_legacy_skipped_artifact_is_regenerated(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "valid\n",
+        "constraints_agent.md": "SKIPPED: constraints_agent was skipped because --coordinator-only\n",
+        "boundaries_agent.md": "valid\n",
+    })
+    _run(monkeypatch, "--headless")
+    text = (out / "artifacts" / "constraints_agent.md").read_text(encoding="utf-8")
+    assert "SKIPPED" not in text and "Logic Analysis" in text
+
+
+def _tree(root):
+    return sorted(str(p.relative_to(root)) for p in root.rglob("*"))
+
+
+def test_coordinator_only_with_skipped_artifact_exits_1_and_touches_nothing(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "valid\n",
+        "constraints_agent.md": "SKIPPED: x\n",
+        "boundaries_agent.md": "valid\n",
+    })
+    before = _tree(out)
+    _forbid_model_calls(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", "--coordinator-only")
+    assert exc.value.code == 1
+    assert _tree(out) == before
+
+
+def test_coordinator_only_with_missing_artifact_exits_1_and_writes_no_placeholder(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, artifacts={
+        "permissions_agent.md": "valid\n",
+        "boundaries_agent.md": "valid\n",
+    })
+    _forbid_model_calls(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", "--coordinator-only")
+    assert exc.value.code == 1
+    assert not (out / "artifacts" / "constraints_agent.md").exists()
+    assert "SKIPPED" not in "".join(p.read_text(encoding="utf-8") for p in (out / "artifacts").iterdir())
+
+
+class _SilentModel(BaseLlm):
+    """Ends the turn with text and never calls a tool, so no file gets written."""
+    model: str = "silent"
+
+    async def generate_content_async(self, request, stream=False):
+        yield LlmResponse(content=types.Content(role="model", parts=[types.Part.from_text(text="done")]))
+
+
+def test_synthesis_that_writes_no_report_exits_1_and_keeps_old_report_as_prev(monkeypatch, tmp_path, write_valid_toc):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc, report="old report text\n")
+    monkeypatch.setattr(
+        app, "create_coordinator_synthesizer",
+        lambda provider=None, model=None: LlmAgent(name="coordinator_psa", model=_SilentModel()),
+    )
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", "--coordinator-only")
+    assert exc.value.code == 1
+    report = out / "reports" / "Security_Threat_Model.md"
+    assert not report.exists()
+    assert report.with_name(report.name + ".prev").read_text(encoding="utf-8") == "old report text\n"
+
+
+def test_all_valid_nothing_to_do_reports_every_output_reused(monkeypatch, tmp_path, write_valid_toc, capsys):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+    before = {p.name: p.read_text(encoding="utf-8") for p in (out / "artifacts").iterdir()}
+    _forbid_model_calls(monkeypatch)
+    _run(monkeypatch, "--headless")
+    printed = capsys.readouterr().out
+    assert printed.count("(reused)") == 4 and "(generated)" not in printed
+    assert {p.name: p.read_text(encoding="utf-8") for p in (out / "artifacts").iterdir()} == before
+
+
+# --- Refresh flags (Tactical 3, D2) ---
+import json
+
+
+def PRINT_COUNT(out, word):
+    return out.count(f"({word})")
+
+
+def _prev(path):
+    return path.with_name(path.name + ".prev")
+
+
+def test_refresh_toc_rebuilds_index_and_whole_audit(monkeypatch, tmp_path, write_valid_toc, capsys):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+    toc = out / config_loader.get("system.toc_filename", "ToC.json")
+    calls = {"n": 0}
+
+    async def fake_generate_toc(model=None):
+        calls["n"] += 1
+        assert not toc.exists(), "refresh must move the old ToC aside first"
+        write_valid_toc(toc)
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    _run(monkeypatch, "--headless", "--refresh-toc")
+
+    printed = capsys.readouterr().out
+    assert calls["n"] == 1
+    assert PRINT_COUNT(printed, "generated") == 4 and PRINT_COUNT(printed, "reused") == 0
+    assert _prev(toc).exists()
+    assert _prev(out / "reports" / "Security_Threat_Model.md").read_text(encoding="utf-8") == "old report\n"
+    assert _prev(out / "artifacts" / "permissions_agent.md").exists()
+
+
+def test_refresh_toc_after_corpus_edit_indexes_new_file_and_invalidates_audit(monkeypatch, tmp_path):
+    from sdaa.src.tools import file_ops
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "a.md").write_text("# a", encoding="utf-8")
+    monkeypatch.setattr(file_ops, "_get_docs_root", lambda: str(corpus))
+    out = _isolate_output_dirs(monkeypatch, tmp_path)
+    toc = out / config_loader.get("system.toc_filename", "ToC.json")
+
+    _run(monkeypatch, "--toc-only")  # index the original corpus (mock summaries)
+    assert [e["path"] for e in json.loads(toc.read_text())["files"]] == ["a.md"]
+    for name in ARTIFACTS:
+        (out / "artifacts" / name).write_text("valid\n", encoding="utf-8")
+    (out / "reports" / "Security_Threat_Model.md").write_text("valid\n", encoding="utf-8")
+
+    (corpus / "b.md").write_text("# b", encoding="utf-8")  # the docs changed
+    _run(monkeypatch, "--toc-only", "--refresh-toc")
+
+    assert sorted(e["path"] for e in json.loads(toc.read_text())["files"]) == ["a.md", "b.md"]
+    # Downstream outputs are invalidated durably, even though --toc-only never ran the audit.
+    for name in ARTIFACTS:
+        assert not (out / "artifacts" / name).exists() and _prev(out / "artifacts" / name).exists()
+    # So the next plain run regenerates them instead of reusing findings built from the old index.
+    _run(monkeypatch, "--headless")
+    assert "Master Audit Report" in (out / "reports" / "Security_Threat_Model.md").read_text(encoding="utf-8")
+
+
+def test_refresh_audit_reuses_toc_and_regenerates_all_outputs(monkeypatch, tmp_path, write_valid_toc, capsys):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+
+    async def fake_generate_toc(model=None):  # pragma: no cover - ToC is valid, must not run
+        raise AssertionError("--refresh-audit must reuse a valid ToC")
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    _run(monkeypatch, "--headless", "--refresh-audit")
+
+    printed = capsys.readouterr().out
+    assert PRINT_COUNT(printed, "generated") == 4 and PRINT_COUNT(printed, "reused") == 0
+    assert "# RBAC Analysis" in (out / "artifacts" / "permissions_agent.md").read_text(encoding="utf-8")
+    assert _prev(out / "artifacts" / "permissions_agent.md").read_text(encoding="utf-8") == "valid permissions_agent.md\n"
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--refresh-toc", "--skip-map-maker"],
+        ["--refresh-toc", "--coordinator-only"],
+        ["--refresh-audit", "--coordinator-only"],
+        ["--refresh-audit", "--toc-only"],
+    ],
+)
+def test_contradictory_refresh_flags_exit_2_with_no_side_effects(monkeypatch, tmp_path, write_valid_toc, flags):
+    out = _seed(monkeypatch, tmp_path, write_valid_toc)
+    before = _tree(out)
+    _forbid_model_calls(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", *flags)
+    assert exc.value.code == 2
+    assert _tree(out) == before
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--refresh-toc", "--toc-only"],
+        ["--refresh-audit", "--skip-map-maker", "--headless"],
+        ["--refresh-toc", "--refresh-audit", "--headless"],
+    ],
+)
+def test_allowed_refresh_combinations_run(monkeypatch, tmp_path, write_valid_toc, flags):
+    _seed(monkeypatch, tmp_path, write_valid_toc)
+
+    async def fake_generate_toc(model=None):
+        write_valid_toc(tmp_path / "out" / config_loader.get("system.toc_filename", "ToC.json"))
+
+    monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
+    _run(monkeypatch, *flags)  # must not raise SystemExit

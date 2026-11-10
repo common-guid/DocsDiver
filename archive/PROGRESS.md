@@ -279,3 +279,20 @@ Reviewed four open PRs. Merged #44 (OpenRouter hardening) and #39 (API key rotat
 - Confirm `ADK013_improve-context-mgt` covers `reset_context`; salvage `SharedMemorySessionService` from #28 only if not.
 - Optionally re-run the suite on Python 3.11 to match `requirements.lock`.
 - Multi-key rotation (`OPENROUTER_API_KEY`/`GEMINI_API_KEY` comma-separated) is untested against live providers.
+
+## Phase: Tactical 3 — Explicit Refresh and Trustworthy Completion | 2026-11-09
+Implemented `docs/plans/TACTICAL_3_REFRESH_AND_COMPLETION.md` (ROADMAP release 0.3) with the plan's recommended answers to its open questions.
+
+### Tasks Completed
+- [x] `sdaa/src/core/output_validation.py`: ToC/artifact/report validity, the expected-output list, legacy `SKIPPED:` detection, and `set_aside()` (`.prev`).
+- [x] `--refresh-toc` / `--refresh-audit` with contradiction checks (exit 2); replaced outputs kept as `.prev`.
+- [x] Map Maker and reporting-tool failures propagate; headless success = valid ToC + four valid outputs; `--coordinator-only` no longer writes `SKIPPED` placeholders.
+- [x] Synthesis reads artifact files from disk (fixes the acknowledgement-in-session-state bug on replay and fresh runs).
+- [x] Destructive tests moved to a per-test tmp output dir; sentinel check confirms the suite leaves `./output` untouched.
+- [x] Suite: 121 passed (clean venv from `requirements.lock`, disposable copy).
+
+### Next Steps & Continuity
+- Freshness detection and run manifests remain Strategic 2; `output_validation.toc_problems` is the hook.
+- The synthesizer prompt now receives the full findings. Review the remote `report-synthesizer` prompt and watch token use on large corpora.
+- Map Maker matches `file_ops` error strings (`# ponytail:` comments); switch to a raising reader once Tactical 1 lands.
+- Not yet run live: a full headless OpenRouter audit exercising the new gate (writes into `output/`).

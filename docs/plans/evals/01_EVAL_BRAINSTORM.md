@@ -77,31 +77,42 @@ Keep two kinds of eval apart:
 Q1 and Q2 shape everything else.
 
 **Q1. Which decision from §2 matters most right now?**
-> _Answer:_
+> _Answer:_ Number two is probably the most important. The thing that I want to know most is how good is the information that the project is producing. So when I am having the agent review documentation, I want to know that it is identifying at least 90% of the cases that it should be identifying as well as The associated explanations. I know that this is a bit of a ambiguous or nebulous response, but that is why I want to create an evaluation in which a sort of rubic or grade can be assigned to it. 
 
 **Q2. When you've read DocsDiver's reports so far, what made you wince?** (Missed issues, invented ones, vague severity, bloat, other?)
-> _Answer:_
+> _Answer:_ Primarily missed issues, but invented ones are also concerning. The further second is like a horror or inaccurate description of the issue, which is very frustrating. It's not only important to identify the area of the issue, but to be able to explain what it is and why. 
 
 **Q3. Is there a real-world documentation set (public or yours) you'd trust as a realistic test, or is synthetic the only option?**
-> _Answer:_
+> _Answer:_ That's a good question. I have used real world documentation before, but I don't know that I'd consider any of them as a good test. The closest one, I think, is the one that we have used in the past for Hex.Tech. https://learn.hex.tech/docs
 
 **Q4. Roughly what spend per eval run is acceptable?**
-> _Answer:_
+> _Answer:_ Well, honestly, I think that depends on the quality of the results, but just speaking from the beginning, I would say try not to exceed $1.50 per run. But that is answered without any context of an actual run, so let's happy-out that. 
 
 **Q5. Confidentiality: may client/engagement documents ever be used in evals or sent to Langfuse?** (Proposed default: no.)
-> _Answer:_
+> _Answer:_ yes, we only use public documentation.
 
 ## 7. Decisions log
 
 | Date | Decision | Source |
 |---|---|---|
-| | | |
+| 2026-11-10 | First eval answers §2 option 2: is a report good enough to hand over? Target: find ≥90% of the issues it should find, with accurate explanations, graded by a rubric. | Q1 |
+| 2026-11-10 | Failure priorities: (1) missed issues, (2) invented issues, (3) inaccurate descriptions. A finding must locate the issue and explain what it is and why it matters. | Q2 |
+| 2026-11-10 | Public documentation only. Client or engagement documents are never used in evals or sent to Langfuse. | Q5 |
+| 2026-11-10 | Realistic corpus candidate: Hex public docs (<https://learn.hex.tech/docs>). Not yet accepted as a good test. | Q3 (provisional) |
+| 2026-11-10 | Budget: at most $1.50 per run, set before seeing a real run; revisit once cost can be measured. | Q4 (provisional) |
+| 2026-11-10 | Follow-up decisions (F1–F6 and the chat follow-ups) are recorded in `02_FOLLOWUP_QUESTIONS.md` and consolidated in `03_EVAL_DESIGN_BRIEF.md`. | 02 |
 
 ## 8. Session notes
 
 ### 2026-11-10: initial brainstorm
 - Created this document from the first brainstorming discussion.
 - Langfuse CLI and skill verified working against the project (read-only checks only).
+
+### 2026-11-10: answers reviewed
+- The operator answered Q1–Q5 in the vault copy; the answers were copied here and logged in §7.
+- **Cost is not measurable today.** All 214 generations in Langfuse since 2026-11-08 record $0 cost and 0 tokens, so the Q4 budget can't be checked against real runs. Capturing token usage and cost is a prerequisite.
+- **Size of a run today:** a full audit of `docs-for-testing/` makes about 30–38 model calls, plus one Map Maker call per file.
+- Follow-up questions F1–F6 recorded in `02_FOLLOWUP_QUESTIONS.md` (vault: [[research/DocsDiver_Evals_Followup_Questions]]).
 
 ## References
 

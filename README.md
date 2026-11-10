@@ -172,7 +172,7 @@ agents:
 
 #### Config options
 
-- `system.docs_root` (**required, default: `"./docs-for-testing"`**): Directory scanned for markdown docs.
+- `system.docs_root` (**required, default: `"./docs-for-testing"`**): Directory scanned for markdown docs. Symlinks inside the corpus are skipped; copy files in instead.
 - `system.output_dir` (**optional, default: `"output"`**): Root directory for `ToC.json`, reports (`output/reports/`), and agent artifacts (`output/artifacts/`).
 - `agents.<agent_name>.<provider>`: Allows per-agent model selection for `gemini` or `openrouter`.
 

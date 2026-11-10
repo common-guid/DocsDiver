@@ -4,7 +4,7 @@ import os
 import re
 from typing import List, Tuple
 from sdaa.src.tools import file_ops
-from sdaa.src.tools.file_ops import list_files, read_file
+from sdaa.src.tools.file_ops import list_markdown, resolve_corpus_path
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.utils.mock_model import MockModel
 from google.adk.models import LlmRequest
@@ -75,10 +75,10 @@ async def _summarize_file(filepath: str, model) -> Tuple[str, List[str]]:
     If the response is not valid JSON, we attempt to extract JSON from markdown
     code blocks before falling back to using the raw text as the summary.
     """
-    content = read_file(filepath)  # access errors raise ValueError; propagate
-    # ponytail: matches file_ops error strings; use a raising reader once Tactical 1 lands
-    if content.startswith(("Error: File not found:", "Error reading file:")):
-        raise RuntimeError(f"Map Maker could not read {filepath}: {content}")
+    try:
+        content = resolve_corpus_path(filepath).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        raise RuntimeError(f"Map Maker could not read {filepath}: {e}") from e
 
     prompt = (
         "You are helping build a navigation map for a documentation corpus.\n"
@@ -144,11 +144,10 @@ async def generate_toc(model=None):
 
     print(f"Generating {toc_filename} at {toc_path}...")
 
-    files_output = list_files()  # access errors raise ValueError; propagate
-    # ponytail: matches file_ops error strings; use a raising reader once Tactical 1 lands
-    if files_output.startswith("Error: Directory not found:"):
-        raise FileNotFoundError(f"Map Maker cannot list the docs root: {files_output}")
-    file_list = files_output.splitlines()
+    try:
+        file_list = list_markdown()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Map Maker cannot list the docs root: {file_ops._get_docs_root()}") from None
     if not file_list:
         raise ValueError(f"no Markdown files under {file_ops._get_docs_root()}")
 

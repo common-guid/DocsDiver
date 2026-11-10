@@ -43,7 +43,7 @@ Controls directory locations, file naming, and batch sizes.
 
 | Key | Type | Default Value | Description & Valid Values |
 | :--- | :--- | :--- | :--- |
-| `system.docs_root` | String | `"docs-for-testing"` | Relative or absolute path to the directory containing documentation Markdown files to audit. Example: `"./docs"`. |
+| `system.docs_root` | String | `"docs-for-testing"` | Relative or absolute path to the directory containing documentation Markdown files to audit. Example: `"./docs"`. Symlinks inside the corpus are skipped; copy files in instead. |
 | `system.output_dir` | String | `"output"` | Base output directory where generated artifacts and reports are written. Example: `"./artifacts"`. |
 | `system.reports_dir` | String | `"reports"` | Subdirectory inside `output_dir` for master audit reports (`output/reports/`). |
 | `system.artifacts_dir` | String | `"artifacts"` | Subdirectory inside `output_dir` for individual worker report files (`output/artifacts/`). |

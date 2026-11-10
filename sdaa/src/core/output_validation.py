@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List
 
 from sdaa.src.core.config_loader import config_loader
-from sdaa.src.tools import file_ops
+from sdaa.src.tools.file_ops import resolve_corpus_path
 
 SKIPPED_PREFIX = "SKIPPED:"  # legacy placeholder written by older --coordinator-only runs
 ERROR_SUMMARY_PREFIX = "Error reading file:"  # legacy swallowed Map Maker read error
@@ -46,7 +46,6 @@ def toc_problems(toc_path: str) -> List[str]:
         return [f"ToC must be an object with a non-empty 'files' list: {toc_path}"]
 
     problems: List[str] = []
-    docs_root = Path(file_ops._get_docs_root()).resolve()
     seen = set()
     for i, entry in enumerate(files):
         where = f"ToC entry {i}"
@@ -68,8 +67,11 @@ def toc_problems(toc_path: str) -> List[str]:
         if not (isinstance(tags, list) and len(tags) == 3
                 and all(isinstance(t, str) and t.strip() for t in tags)):
             problems.append(f"{where} must have exactly 3 non-empty tags")
-        target = (docs_root / path).resolve()
-        if not target.is_relative_to(docs_root) or not target.is_file():
+        try:
+            p = resolve_corpus_path(path)
+            if not p.is_file():
+                problems.append(f"{where} is not a file inside the docs root")
+        except Exception:
             problems.append(f"{where} is not a file inside the docs root")
     return problems
 

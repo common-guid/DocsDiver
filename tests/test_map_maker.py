@@ -101,3 +101,50 @@ def test_generate_toc_unwritable_output_dir_raises(tmp_corpus, monkeypatch, tmp_
     monkeypatch.setattr(config_loader, "get_output_dir", lambda: str(tmp_path / "no" / "such" / "dir"))
     with pytest.raises(OSError):
         asyncio.run(generate_toc())
+
+
+# ---------------------------------------------------------------------------
+# T1: symlinked documents must never reach the model; ToC must exclude them
+# ---------------------------------------------------------------------------
+
+def test_generate_toc_excludes_symlinked_file_and_never_sends_to_model(tmp_corpus, monkeypatch, tmp_path):
+    (tmp_corpus / "good.md").write_text("# good", encoding="utf-8")
+    # create a symlink to an outside file
+    outside = tmp_path / "outside.md"
+    outside.write_text("SENSITIVE OUTSIDE", encoding="utf-8")
+    os.symlink(outside, tmp_corpus / "leak.md")
+
+    # Spy model that records every content it receives
+    seen = []
+    class Spy:
+        model = "spy"
+        async def generate_content_async(self, request, stream=False):
+            text = ""
+            for c in (request.contents or []):
+                for p in (getattr(c, "parts", []) or []):
+                    if getattr(p, "text", None):
+                        text += p.text
+            seen.append(text)
+            yield type("R", (), {"content": type("C", (), {"parts": [type("P", (), {"text": '{"summary": "x", "tags": ["a","b","c"]}'})()]})()})()
+
+    asyncio.run(generate_toc(model=Spy()))
+
+    toc = json.loads(open(_toc_path(), encoding="utf-8").read())
+    paths = [e["path"] for e in toc.get("files", [])]
+    # leak.md must not be in ToC
+    assert "leak.md" not in paths
+    assert "good.md" in paths
+    # The outside content must never have been passed to the model
+    assert not any("SENSITIVE OUTSIDE" in s for s in seen)
+
+
+def test_generate_toc_is_sorted_deterministically(tmp_corpus):
+    # Write files in non-alpha order
+    (tmp_corpus / "z.md").write_text("# z", encoding="utf-8")
+    (tmp_corpus / "a.md").write_text("# a", encoding="utf-8")
+    (tmp_corpus / "m.md").write_text("# m", encoding="utf-8")
+
+    asyncio.run(generate_toc())
+    toc = json.loads(open(_toc_path(), encoding="utf-8").read())
+    paths = [e["path"] for e in toc.get("files", [])]
+    assert paths == sorted(paths)

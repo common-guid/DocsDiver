@@ -133,3 +133,15 @@ def test_set_aside_moves_ignores_missing_and_overwrites_prev(tmp_path):
     assert not a.exists()
     assert (tmp_path / "a.md.prev").read_text(encoding="utf-8") == "new"
     assert not (tmp_path / "missing.md.prev").exists()
+
+
+# ---------------------------------------------------------------------------
+# T1: internal symlinks are now rejected by the shared rule (toc_problems)
+# ---------------------------------------------------------------------------
+
+def test_toc_internal_symlink_is_rejected(corpus, tmp_path):
+    # corpus already has a.md; create a symlink inside corpus pointing to a.md
+    os.symlink(corpus / "a.md", corpus / "alias.md")
+    bad = _write(tmp_path / "toc.json", {"files": [_entry("alias.md")]})
+    probs = ov.toc_problems(bad)
+    assert probs and any("not a file inside the docs root" in p for p in probs)

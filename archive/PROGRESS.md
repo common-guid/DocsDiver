@@ -280,6 +280,22 @@ Reviewed four open PRs. Merged #44 (OpenRouter hardening) and #39 (API key rotat
 - Optionally re-run the suite on Python 3.11 to match `requirements.lock`.
 - Multi-key rotation (`OPENROUTER_API_KEY`/`GEMINI_API_KEY` comma-separated) is untested against live providers.
 
+## Phase: Tactical 1 — Safe, Deterministic Documentation Access | 2026-11-10
+### Tasks Completed
+- [x] `sdaa/src/tools/file_ops.py`: added `resolve_corpus_path` (resolved containment + symlink rejection) and `list_markdown` (sorted, skips symlinks with warnings); rewrote `read_file`/`list_files` on top of them. Only the bare configured ToC name is redirected; all other paths are subject to the shared rule.
+- [x] Tools return `"Error: Access denied: ..."` strings (plus `logger.warning`) on denial; internal callers (Map Maker, `toc_problems`) raise `ValueError`.
+- [x] `sdaa/src/core/map_maker.py`: now uses `list_markdown()` and `resolve_corpus_path(...).read_text()`; removed both `# ponytail:` comments and error-prefix matching.
+- [x] `sdaa/src/core/output_validation.py`: `toc_problems` now calls `resolve_corpus_path`; an internal symlink entry is a problem (ToC validity == readability by tools).
+- [x] `tests/test_tools.py`: added `tmp_corpus` fixture and the full §4 matrix (sibling prefix, traversal, symlink file/dir, `resolve_corpus_path` errors, denial message shape, `linkdir/../`, ToC exact-name vs. sub/outside, missing cases); updated `test_read_file_traversal` to expect access-denied string.
+- [x] `tests/test_map_maker.py`: spy-model test (symlinked file never sent to model, excluded from ToC) and deterministic ordering test.
+- [x] `tests/test_output_validation.py`: internal-symlink ToC entry now produces a problem.
+- [x] Suite: 137 passed (clean venv from `requirements.lock`, disposable copy). One-rule greps clean; no user outputs touched.
+- [x] Docs updated: `ARCHITECTURE_AND_DATA_FLOW.md`, `AGENTS.md`, `README.md`, `CONFIGURATION_GUIDE.md`, `ROADMAP.md`, `archive/PROGRESS.md`.
+
+### Next Steps & Continuity
+- TOCTOU and hardlinks remain out of scope; revisit before running on untrusted corpora in CI (Strategic 3).
+- Next planned: Tactical 2 (prompt fallbacks).
+
 ## Phase: Tactical 3 — Explicit Refresh and Trustworthy Completion | 2026-11-09
 Implemented `docs/plans/TACTICAL_3_REFRESH_AND_COMPLETION.md` (ROADMAP release 0.3) with the plan's recommended answers to its open questions.
 

@@ -104,7 +104,7 @@ The CLI skips indexing when the ToC is valid (`core/output_validation.py`: parse
 
 These directories are resolved under `system.output_dir` using the configured reports/artifacts directory names. Reporting tools return status/error strings; a tool failure does not necessarily raise.
 
-`tools/file_ops.py` resolves normal reads relative to `system.docs_root`, and special-cases the configured ToC basename to read from `output_dir`. It is not a general output-artifact reader. Its current string-prefix containment check does not securely handle sibling-prefix paths or symlinks; do not assume the sandboxing described in older guides is enforced.
+`tools/file_ops.py` enforces a single rule via `resolve_corpus_path`: paths must resolve inside `docs_root` without symlinks (resolved != lexical or !is_relative_to). Symlinked files/directories are skipped with a logged warning during listing and are never readable. The only output file that is ever served is the bare configured ToC filename; all other paths (including sub/ToC.json and ../x/ToC.json) are subject to the normal rule. Tool denials return an access-denied string and log a warning; internal callers (Map Maker, toc_problems) raise. Listing is globally sorted for deterministic ToC order.
 
 ### Model and prompt boundaries
 

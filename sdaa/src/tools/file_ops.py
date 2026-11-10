@@ -1,9 +1,66 @@
 import os
+import logging
+from pathlib import Path
+
 from sdaa.src.core.config_loader import config_loader
+
+logger = logging.getLogger(__name__)
 
 
 def _get_docs_root():
     return os.path.abspath(config_loader.get("system.docs_root", "./docs"))
+
+
+def resolve_corpus_path(path: str) -> Path:
+    """Absolute path of `path` inside the docs root.
+
+    ValueError if the path escapes the root or is reached via a symlink anywhere below the root.
+    The caller must open the *returned* resolved path; the lexical input may contain .. that
+    collapses safely after normpath because we never open the raw input.
+    """
+    root = Path(_get_docs_root()).resolve()
+    candidate = Path(os.path.normpath(root / path))
+    resolved = candidate.resolve()
+    if resolved != candidate or not resolved.is_relative_to(root):
+        raise ValueError(
+            f"Access denied: {path} is outside the documentation root or uses a symlink."
+        )
+    return resolved
+
+
+def list_markdown(directory_path: str = ".") -> list[str]:
+    """Return a sorted list of corpus-relative .md paths under directory_path.
+
+    - Authorizes the directory via resolve_corpus_path (rejects escapes and symlinks).
+    - Skips symlinked files and directories (with one warning each).
+    - Does not descend into symlinked directories.
+    - Raises FileNotFoundError if the target is not a directory.
+    """
+    root = Path(_get_docs_root()).resolve()
+    target = resolve_corpus_path(directory_path)
+    if not target.is_dir():
+        raise FileNotFoundError(f"Directory not found: {directory_path}")
+
+    entries: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(target, followlinks=False):
+        dpath = Path(dirpath)
+        # Remove symlinked directories so os.walk does not descend; warn once each
+        for d in list(dirnames):
+            if (dpath / d).is_symlink():
+                rel = (dpath / d).relative_to(root)
+                logger.warning(f"Skipping symlinked directory: {rel}")
+                dirnames.remove(d)
+        for fname in filenames:
+            fpath = dpath / fname
+            if fpath.is_symlink():
+                rel = fpath.relative_to(root)
+                logger.warning(f"Skipping symlinked file: {rel}")
+                continue
+            if fpath.suffix.lower() == ".md":
+                rel = fpath.relative_to(root)
+                entries.append(str(rel).replace(os.sep, "/"))
+    entries.sort()
+    return entries
 
 
 def read_file(file_path: str) -> str:
@@ -14,38 +71,32 @@ def read_file(file_path: str) -> str:
 
     Returns:
         The content of the file, or an error string if it cannot be read.
-
-    Raises:
-        ValueError: If the file path is outside the documentation root (except ToC).
     """
-    docs_root = _get_docs_root()
     toc_filename = config_loader.get("system.toc_filename", "ToC.json")
 
-    # Special-case: allow agents to read the generated ToC.json from the
-    # configured output directory, even though it lives outside docs_root.
-    if os.path.basename(file_path) == toc_filename:
+    # D4: only the bare configured ToC name is redirected to output_dir.
+    # Any other path (including sub/ToC.json or ../x/ToC.json) goes through normal authorization.
+    if file_path == toc_filename:
         output_dir = config_loader.get_output_dir()
-        full_path = os.path.abspath(os.path.join(output_dir, toc_filename))
-    else:
-        # Handle absolute paths if they start with docs_root, otherwise treat as relative
-        if os.path.isabs(file_path):
-            full_path = os.path.abspath(file_path)
-        else:
-            full_path = os.path.abspath(os.path.join(docs_root, file_path))
-
-        if not full_path.startswith(docs_root):
-            raise ValueError(
-                f"Access denied: {file_path} is outside the documentation root."
-            )
-
-    if not os.path.exists(full_path):
-        return f"Error: File not found: {file_path}"
+        full = Path(output_dir) / toc_filename
+        if not full.exists():
+            return f"Error: File not found: {file_path}"
+        try:
+            return full.read_text(encoding="utf-8")
+        except Exception as e:
+            return f"Error reading file: {e}"
 
     try:
-        with open(full_path, "r", encoding="utf-8") as f:
-            return f.read()
+        resolved = resolve_corpus_path(file_path)
+        if not resolved.exists() or not resolved.is_file():
+            return f"Error: File not found: {file_path}"
+        return resolved.read_text(encoding="utf-8")
+    except ValueError as e:
+        logger.warning(str(e))
+        return f"Error: Access denied: {file_path} is outside the documentation root or uses a symlink."
     except Exception as e:
-        return f"Error reading file: {str(e)}"
+        return f"Error reading file: {e}"
+
 
 def list_files(directory_path: str = ".") -> str:
     """
@@ -55,25 +106,11 @@ def list_files(directory_path: str = ".") -> str:
     Returns:
         A list of file paths relative to the docs root.
     """
-    docs_root = _get_docs_root()
-
-    if os.path.isabs(directory_path):
-        full_path = os.path.abspath(directory_path)
-    else:
-        full_path = os.path.abspath(os.path.join(docs_root, directory_path))
-
-    if not full_path.startswith(docs_root):
-        raise ValueError(f"Access denied: {directory_path} is outside the documentation root.")
-
-    if not os.path.exists(full_path):
+    try:
+        files = list_markdown(directory_path)
+        return "\n".join(files)
+    except FileNotFoundError:
         return f"Error: Directory not found: {directory_path}"
-
-    file_list = []
-    for root, dirs, files in os.walk(full_path):
-        for file in files:
-            if file.endswith('.md'): # Only list markdown files as per plan implication
-                abs_path = os.path.join(root, file)
-                rel_path = os.path.relpath(abs_path, docs_root)
-                file_list.append(rel_path)
-
-    return "\n".join(file_list)
+    except ValueError as e:
+        logger.warning(str(e))
+        return f"Error: Access denied: {directory_path} is outside the documentation root or uses a symlink."

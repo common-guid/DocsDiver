@@ -37,7 +37,6 @@ graph TD
         Main --> Coord[coordinator_psa]
         User <-->|Interactive Query| Coord
         Coord --> ReadToC[read_file / ToC.json]
-        Coord --> ReadArts[read_file / artifacts]
     end
 ```
 
@@ -86,7 +85,7 @@ graph TD
 | **Map Maker** | `sdaa/src/core/map_maker.py` | Synchronous file scanner & ToC generator. |
 | **Worker Agents** | `sdaa/src/agents/workers.py` | Defines `permissions_agent`, `constraints_agent`, and `boundaries_agent`. |
 | **Coordinator** | `sdaa/src/agents/coordinator.py` | Defines main supervisor agent (`coordinator_psa`) and report synthesizer (`coordinator_synth`). |
-| **File Tools** | `sdaa/src/tools/file_ops.py` | Safe file system read/list utilities preventing path traversal outside `docs_root` / `output_dir`. |
+| **File Tools** | `sdaa/src/tools/file_ops.py` | Corpus-confined read/list tools: paths must resolve inside `docs_root` without symlinks; the only output file readable is the bare ToC name. |
 | **Reporting Tools** | `sdaa/src/tools/reporting.py` | Functions to write markdown reports (`permissions_agent.md`, `Security_Threat_Model.md`, etc.). |
 | **Rich UI** | `sdaa/src/ui/rich_chat.py` | Terminal interface for live streaming, status indicators, and user interactions. |
 

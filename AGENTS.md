@@ -88,6 +88,44 @@ Timing: Run the logging command immediately after verifying your changes pass bu
 Title: A concise headline describing the work (e.g., "Fix JWT expiration edge case" or "Add user profile avatar upload").
 Summary: 1–2 sentences explaining why the change was necessary and what core logic was updated.
 
+## Vault inbox (CoS_brain)
+
+Hermes owns this project's `tasks.md`, `project.md`, `worklog.md`, and checkboxes. You do not edit those files. You do not run `task_ops.py`. You do not check a box.
+
+When the operator wants this session recorded in the vault, create one new file. Do not append to an old drop. Do not edit a file after you create it. A correction is a new file.
+
+Drop path:
+
+`/home/guid/CoS_brain/projects/Doc_Analysis_Agent/reports/inbox/YYYY-MM-DDTHHMMSSZ-<slug>.md`
+
+Vault root on the laptop, squawk, and serval: `/home/guid/CoS_brain`.
+This project's vault directory: `projects/Doc_Analysis_Agent`.
+
+Use UTC (`date -u +%Y-%m-%dT%H%M%SZ`). Do not reuse a filename. If `reports/inbox/` is missing, stop. Do not create the directory. Say that the inbox is missing.
+
+```yaml
+---
+type: agent-report
+status: staged
+project: doc_analysis_agent
+agent: <your-name>
+---
+```
+
+Body: one verb per line. No status essay.
+
+- `ADD:` imperative title — one sentence of scope
+- `DONE:` title — commit, command, or test output you checked. A DONE line with no evidence is incomplete.
+- `BLOCKED:` title — the exact blocker
+- `DOC:` repo or vault path — one sentence. Do not create a vault note. Put the repo path on the DOC line.
+- `NOTE:` one sentence for the worklog. Not a new task.
+
+A DONE line is a claim. Hermes checks the box after the evidence matches.
+
+Do not write `project.md`, `tasks.md`, `worklog.md`, `tasks/`, `.checkpoints/`, `01_Executive/`, `03_Dashboards/`, or another project. Do not write `projects_wiki`. No secrets.
+
+Ignore `README.md` in the inbox. Do not edit it.
+
 ## Architecture
 
 Module paths below are relative to `sdaa/src/`; `main.py` is at the repository root.

@@ -1,6 +1,6 @@
 # Eval Design Brief (Strategic Feature 1, v0)
 
-Status: brief, ready for detailed design · Created 2026-11-10 · Repo baseline `ADK_master` at `963fc6f` · Sources: `01_EVAL_BRAINSTORM.md`, `02_FOLLOWUP_QUESTIONS.md`
+Status: brief, final. Where `05_EVAL_DESIGN.md` §5–6 differ (judge model, M2 per graded run, no length exclusions), 05 wins · Created 2026-11-10 · Repo baseline `ADK_master` at `963fc6f` · Sources: `01_EVAL_BRAINSTORM.md`, `02_FOLLOWUP_QUESTIONS.md`
 
 This brief collects every decision from the brainstorm in one place. It is the input for the detailed eval design (to be produced by a frontier model from a prompt in `04_…`), and it says what that design must decide. It is not a design or an implementation plan.
 

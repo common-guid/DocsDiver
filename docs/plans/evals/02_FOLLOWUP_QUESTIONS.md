@@ -13,7 +13,7 @@ These questions build on the Q1–Q5 answers. Answer inline (CriticMarkup is fin
   
   - All 214 Langfuse generations since 2026-11-08 record $0 cost and 0 tokens, so the budget can't be checked yet. Capturing token usage and cost is a prerequisite; OpenRouter includes usage in its responses, but DocsDiver doesn't record it.
     
-  - A full audit of `docs-for-testing/` is about 30–38 model calls, plus one Map Maker call per file. A Hex corpus of real size will cost much more.
+  - A full audit of `docs-for-testing/` is about 30–38 model calls, plus one Map Maker call per file. *Correction 2026-11-11: each call is traced twice, so the real figure is 15–19 calls (`05_EVAL_DESIGN.md` V1).* A Hex corpus of real size will cost much more.
     
 ## F1. Who writes the answer key, and is that time realistic?
 "90% of the issues it should find" only means something against a list of those issues.

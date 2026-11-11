@@ -111,7 +111,7 @@ Q1 and Q2 shape everything else.
 ### 2026-11-10: answers reviewed
 - The operator answered Q1–Q5 in the vault copy; the answers were copied here and logged in §7.
 - **Cost is not measurable today.** All 214 generations in Langfuse since 2026-11-08 record $0 cost and 0 tokens, so the Q4 budget can't be checked against real runs. Capturing token usage and cost is a prerequisite.
-- **Size of a run today:** a full audit of `docs-for-testing/` makes about 30–38 model calls, plus one Map Maker call per file.
+- **Size of a run today:** a full audit of `docs-for-testing/` makes about 30–38 model calls, plus one Map Maker call per file. *Correction 2026-11-11: each call is traced twice, so the real figure is 15–19 calls (`05_EVAL_DESIGN.md` V1).*
 - Follow-up questions F1–F6 recorded in `02_FOLLOWUP_QUESTIONS.md` (vault: [[research/DocsDiver_Evals_Followup_Questions]]).
 
 ## References

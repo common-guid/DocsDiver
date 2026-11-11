@@ -319,7 +319,7 @@ Implemented `docs/plans/TACTICAL_3_REFRESH_AND_COMPLETION.md` (ROADMAP release 0
 - [x] `sdaa/src/core/instrumentation.py`: Langfuse exporter sends `x-langfuse-ingestion-version: 4`.
 - [x] `tests/test_openrouter_usage.py` (11 tests) and one header assertion in `tests/test_instrumentation.py`.
 - [x] Suite: 148 passed (baseline 137 + 11 new), disposable copy.
-- [ ] Live check (plan §6): pending operator go-ahead; spends under $0.05.
+- [x] Live check (plan §6), 2026-11-11: full headless OpenRouter audit exit 0, four outputs generated; run cost $0.0404467460 (OpenRouter delta) vs $0.0404467464 (Langfuse adapter sum). 17 adapter generations, all with model, tokens and cost; 4 `call_llm` IDs exported twice (known duplicate exporter, F12).
 
 ### Next Steps & Continuity
 - Plan `docs/plans/evals/06_P1_USAGE_COST_PLAN.md`; the ledger moved to P3; the duplicate `call_llm` generation stays until a follow-up.

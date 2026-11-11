@@ -20,6 +20,26 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+def _record_usage(span, response) -> None:
+    """Copy OpenRouter token counts and USD cost onto the span. Never raises."""
+    try:
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return
+        counts = {
+            key: getattr(usage, field, None)
+            for key, field in (("input", "prompt_tokens"), ("output", "completion_tokens"), ("total", "total_tokens"))
+        }
+        counts = {k: v for k, v in counts.items() if type(v) is int}
+        if counts:
+            span.set_attribute("langfuse.observation.usage_details", json.dumps(counts))
+        cost = getattr(usage, "cost", None)
+        if type(cost) in (int, float):
+            span.set_attribute("langfuse.observation.cost_details", json.dumps({"total": cost}))
+    except Exception as e:  # observability must not fail a model call
+        logger.warning(f"Failed to record OpenRouter usage on span: {e}")
+
 REASONING_MIME_TYPE = "application/x-reasoning-details"
 
 class OpenRouterModel(BaseLlm):
@@ -133,7 +153,7 @@ class OpenRouterModel(BaseLlm):
             kind=SpanKind.CLIENT,
             attributes={
                 "openinference.span.kind": "LLM",
-                "model_name": self.model
+                "llm.model_name": self.model
             }
         ) as span:
 
@@ -330,13 +350,14 @@ class OpenRouterModel(BaseLlm):
                 )
 
                 if should_stream:
-                    # TODO: Properly instrument streaming output if needed
+                    # ponytail: streamed calls record no usage; headless never streams. Read usage from the final chunk if chat cost matters.
                     async for chunk in response:
                         content_text = chunk.choices[0].delta.content or ""
                         if content_text:
                             content = types.Content(parts=[types.Part.from_text(text=content_text)])
                             yield LlmResponse(content=content)
                 else:
+                    _record_usage(span, response)
                     message = response.choices[0].message
                     parts = []
 

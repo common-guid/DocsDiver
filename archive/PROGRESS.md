@@ -312,3 +312,15 @@ Implemented `docs/plans/TACTICAL_3_REFRESH_AND_COMPLETION.md` (ROADMAP release 0
 ### Next Steps & Continuity
 - TOCTOU and hardlinks remain out of scope; revisit before running on untrusted corpora in CI (Strategic 3).
 - Next planned: Tactical 2 (prompt fallbacks).
+
+## Phase: Eval P1 — Usage and Cost Capture | 2026-11-11
+### Tasks Completed
+- [x] `sdaa/src/utils/openrouter_model.py`: the adapter span records OpenRouter token usage and USD cost (`langfuse.observation.usage_details` / `cost_details`) once per call, via `_record_usage` (never raises); `model_name` renamed to `llm.model_name`. `LlmResponse.usage_metadata` stays unset, so `call_llm` carries no usage.
+- [x] `sdaa/src/core/instrumentation.py`: Langfuse exporter sends `x-langfuse-ingestion-version: 4`.
+- [x] `tests/test_openrouter_usage.py` (11 tests) and one header assertion in `tests/test_instrumentation.py`.
+- [x] Suite: 148 passed (baseline 137 + 11 new), disposable copy.
+- [ ] Live check (plan §6): pending operator go-ahead; spends under $0.05.
+
+### Next Steps & Continuity
+- Plan `docs/plans/evals/06_P1_USAGE_COST_PLAN.md`; the ledger moved to P3; the duplicate `call_llm` generation stays until a follow-up.
+- Streaming path is unmetered (`ponytail:` comment in the adapter).

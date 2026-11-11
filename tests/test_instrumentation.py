@@ -30,6 +30,7 @@ class TestInstrumentation(unittest.TestCase):
             self.assertEqual(call_args.kwargs['endpoint'], "http://localhost:3000/api/public/otel/v1/traces")
             self.assertIn("Authorization", call_args.kwargs['headers'])
             self.assertTrue(call_args.kwargs['headers']['Authorization'].startswith("Basic "))
+            self.assertEqual(call_args.kwargs['headers']['x-langfuse-ingestion-version'], "4")
         else:
             # If Langfuse is not available (e.g. Python 3.14 issue), it should skipped with a warning
             self.assertEqual(MockExporter.call_count, 0)

@@ -133,7 +133,7 @@ def setup_instrumentation():
 
                 lf_exporter = OTLPSpanExporter(
                     endpoint=lf_endpoint,
-                    headers={"Authorization": auth_header}
+                    headers={"Authorization": auth_header, "x-langfuse-ingestion-version": "4"}
                 )
                 provider.add_span_processor(BatchSpanProcessor(lf_exporter))
                 has_exporter = True

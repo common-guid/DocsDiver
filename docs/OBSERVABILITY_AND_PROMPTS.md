@@ -31,6 +31,9 @@ Both Langfuse and LangSmith telemetry exporters attach to a single `TracerProvid
 3. **Health Check Guard**:
    - Before attaching the `OTLPSpanExporter`, `setup_instrumentation()` sends an HTTP GET request to `${LANGFUSE_HOST}/api/public/health`.
    - If the backend is unreachable or returns an HTTP error, Langfuse tracing is gracefully disabled, preventing network timeouts or noisy stack traces during normal CLI execution.
+   - The exporter sends the `x-langfuse-ingestion-version: 4` header, which Langfuse Cloud requires after its v4 cutover.
+4. **OpenRouter Usage and Cost**:
+   - For OpenRouter calls, the `OpenRouterModel.generate_content` span carries OpenRouter's token usage (`langfuse.observation.usage_details`) and USD cost (`langfuse.observation.cost_details`), and is the only span that does.
 
 ---
 

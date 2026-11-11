@@ -460,7 +460,7 @@ _P1, usage and cost._ In the non-streaming branch of `OpenRouterModel.generate_c
   
 - set `llm.model_name` (V2);
   
-- append the call to an in-process ledger: agent, model, prompt name and version, tokens, cost.
+- append the call to an in-process ledger: agent, model, prompt name and version, tokens, cost. *Moved to P3 (2026-11-11, `06_P1_USAGE_COST_PLAN.md` §7 decision 1): nothing reads the ledger before the run manifest exists.*
   
 
 Usage goes on this span only, and `LlmResponse.usage_metadata` stays unset, so the ADK instrumentor's `call_llm` span carries no usage and nothing is counted twice (V1). The exporter gains the `x-langfuse-ingestion-version: 4` header (V11). A call that takes the streaming branch is counted as unmetered.
@@ -604,9 +604,9 @@ Model cost is an estimate until P1 lands. Operator minutes total 120.
 
 | Phase | What | Files | Exit criteria | Model cost | Operator min |
 |---|---|---|---|---|---|
-| **P1** | Usage, cost, model name, ingestion header | `sdaa/src/utils/openrouter_model.py`, `sdaa/src/core/instrumentation.py`, `tests/test_openrouter_usage.py` | Mocked-response test asserts the span attributes and the ledger. Live check: one `--toc-only` on `docs-for-testing/`; Langfuse shows a non-zero cost equal to the ledger and a model name. | $0.01 | 0 |
+| **P1** | Usage, cost, model name, ingestion header | `sdaa/src/utils/openrouter_model.py`, `sdaa/src/core/instrumentation.py`, `tests/test_openrouter_usage.py` | Mocked-response tests assert the span attributes. Live check: one full headless audit on `docs-for-testing/`; Langfuse cost equals the OpenRouter key-usage difference, with a model name on every adapter span. Detail: `06_P1_USAGE_COST_PLAN.md`. | under $0.05 | 0 |
 | **P2** | `--docs-root`, `--output-dir`, `--set` | `main.py`, `sdaa/src/core/config_loader.py`, `tests/test_main_headless.py` | Mock headless run writes only to the given directories. Unknown `--set` key exits 2. Tracked YAML unchanged. | 0 | 0 |
-| **P3** | Run manifest, `--run-id`, session per run | `main.py`, new `sdaa/src/core/run_manifest.py`, `sdaa/src/core/model_factory.py`, `sdaa/src/core/instrumentation.py`, tests | Mock run writes a complete manifest. A failed run writes one with the failure. A missing prompt version is recorded as null. | 0 | 0 |
+| **P3** | Run manifest, `--run-id`, session per run, the call ledger (moved from P1) | `main.py`, new `sdaa/src/core/run_manifest.py`, `sdaa/src/utils/openrouter_model.py`, `sdaa/src/core/model_factory.py`, `sdaa/src/core/instrumentation.py`, tests | Mock run writes a complete manifest. A failed run writes one with the failure. A missing prompt version is recorded as null. | 0 | 0 |
 | **H1** | Corpus and key tools, synthetic example | `evals/corpus.py`, `evals/key.py`, `evals/examples/acme/`, `tests/evals/` | Tests in §3.3 and §3.4 pass. No model calls. | 0 | 0 |
 | **H2** | Runner | `evals/run.py`, `evals/__main__.py`, tests | Stub-audit run produces a run directory. The three leak tests pass. Paths inside the repo are refused. The audit process gets an empty `LANGSMITH_API_KEY` (decision 3). | 0 | 0 |
 | **H3** | Judge, grading, report, sheets | `evals/grade.py`, `evals/report.py`, `evals/prompts/`, tests | Tests in §3.1, §3.5 and §3.8 pass with a canned judge. One live smoke on the synthetic corpus finds its planted item with zero decoy hits. | $0.10 | 0 |

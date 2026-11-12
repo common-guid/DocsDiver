@@ -678,6 +678,7 @@ The operator answered the open questions in review. The design above has been up
 | 8 | Failed audits | Up to 5 attempts per variant, completion rate reported | As already written in §3.6 and §3.8. |
 | 9 | Operator time | Accept provisional invented counts on seeded runs | O1 stays 120 minutes. Challenge 2 resolved. |
 | 10 | Size of the key | Stay at 12 planted items; consider about 24 in v2 | The gate is read as a screen (§3.8). Challenge 1 resolved. |
+| 11 | `--set` in P2 (2026-11-12) | Deferred. P2 ships `--docs-root` and `--output-dir` only | No v0 phase uses an override; build it when the first comparison run is planned. `evals run` drops `[--set k=v]` until then. Plan: `09_P2_PATHS_PLAN.md`. |
 
 ## 7. Risks beyond brief §7
 - **A judge that holds the key is lenient by default.** It looks for the answer and tends to find it. Decoys, near-miss calibration cases and the stability check measure this; they do not remove it.

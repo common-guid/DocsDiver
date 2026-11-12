@@ -3,6 +3,7 @@ import asyncio
 import argparse
 import os
 import logging
+from pathlib import Path
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
@@ -98,6 +99,26 @@ def build_prechat_audit_agent(provider: str) -> SequentialAgent:
         ]
     )
 
+def apply_path_overrides(parser, args):
+    """Write --docs-root/--output-dir into the config, then validate the effective paths (exit 2 on error)."""
+    if args.docs_root is None and args.output_dir is None:
+        return
+    system = config_loader.config.setdefault("system", {})
+    if args.docs_root is not None:
+        system["docs_root"] = os.path.abspath(os.path.expanduser(args.docs_root))
+    if args.output_dir is not None:
+        system["output_dir"] = os.path.abspath(os.path.expanduser(args.output_dir))
+
+    docs = Path(os.path.abspath(config_loader.get("system.docs_root", "./docs"))).resolve()
+    out = Path(os.path.abspath(os.path.expanduser(config_loader.get("system.output_dir", ".") or "."))).resolve()
+    if args.docs_root is not None and not docs.is_dir():
+        parser.error(f"--docs-root {args.docs_root}: does not exist or is not a directory")
+    if out.exists() and not out.is_dir():
+        parser.error(f"output directory {out}: exists and is not a directory")
+    if out == docs or out.is_relative_to(docs):
+        parser.error(f"output directory {out} is inside the docs root {docs}; the audit would read its own outputs")
+
+
 async def main():
     parser = argparse.ArgumentParser(description="SDAA: Security Documentation Analysis Agent")
     parser.add_argument("-m", "--model", choices=["gemini", "openrouter", "mock"], default="openrouter", help="Model provider to use")
@@ -108,6 +129,8 @@ async def main():
     parser.add_argument("--headless", action="store_true", help="Run non-interactively: Map Maker + Pre-chat Audit, write all outputs, then exit. Exit code 0 on success, 1 on failure (missing ToC or outputs).")
     parser.add_argument("--refresh-toc", action="store_true", help="Rebuild the ToC and then the whole audit; previous outputs are kept as .prev")
     parser.add_argument("--refresh-audit", action="store_true", help="Rerun all workers and synthesis, reusing a valid ToC; previous outputs are kept as .prev")
+    parser.add_argument("--docs-root", help="Directory of Markdown docs to audit for this run (overrides system.docs_root)")
+    parser.add_argument("--output-dir", help="Directory for this run's ToC, artifacts and report (overrides system.output_dir)")
     args = parser.parse_args()
 
     # Contradictory flags are usage errors (exit 2), reported before any I/O.
@@ -119,6 +142,7 @@ async def main():
         parser.error("--refresh-audit cannot be combined with --coordinator-only")
     if args.refresh_audit and args.toc_only:
         parser.error("--refresh-audit cannot be combined with --toc-only")
+    apply_path_overrides(parser, args)
 
     ui = RichUI(no_rich=args.no_rich)
     suppress_genai_non_text_warning()

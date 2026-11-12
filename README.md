@@ -133,6 +133,8 @@ python main.py
 | `--coordinator-only`| Re-run only synthesis from existing worker artifacts, bypassing the workers and Map Maker. Requires a valid ToC and three valid worker artifacts; exits `1` otherwise (it never writes placeholders). |
 | `--refresh-toc` | Rebuild the ToC and then the whole audit. The previous ToC, artifacts and report are kept as `.prev`. |
 | `--refresh-audit` | Rerun all workers and synthesis, reusing a valid ToC. The previous artifacts and report are kept as `.prev`. |
+| `--docs-root <dir>` | Audit this directory instead of `system.docs_root`, for this run only. Must be an existing directory. |
+| `--output-dir <dir>` | Write the ToC, artifacts and report here instead of `system.output_dir`, for this run only. Must not be inside the docs root (the audit would index its own findings). |
 | `--no-rich` | Disable the Rich terminal UI for plain text output. |
 | `--headless` | Run non-interactively: Map Maker + Pre-chat Audit, then exit. Exit code `0` only if there is a valid ToC and four valid outputs (three artifacts and the report); `1` for a runtime or validation failure; `2` for contradictory flags. The final status line names each output as `reused` or `generated`. Designed for pipeline/CI use. |
 
@@ -152,6 +154,7 @@ Output reuse checks that files are *valid*, not that they are *current*: editing
 *   Documentation changed: `python main.py --refresh-toc` rebuilds the index and the whole audit.
 *   Re-run the analysis against the same index (new prompts or models): `--refresh-audit`.
 *   Check an index without running anything else: `python main.py --skip-map-maker --toc-only` (exit `0` or `1`).
+*   Audit another corpus without editing the config: `python main.py --headless --docs-root /path/to/docs --output-dir /tmp/run1`. An empty output directory means everything is generated fresh.
 *   Replaced files are kept next to the new ones as `<name>.prev`; one previous generation is kept.
 
 ### Configuration (`sdaa/config/config.yaml`)

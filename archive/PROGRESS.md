@@ -324,3 +324,15 @@ Implemented `docs/plans/TACTICAL_3_REFRESH_AND_COMPLETION.md` (ROADMAP release 0
 ### Next Steps & Continuity
 - Plan `docs/plans/evals/06_P1_USAGE_COST_PLAN.md`; the ledger moved to P3; the duplicate `call_llm` generation stays until a follow-up.
 - Streaming path is unmetered (`ponytail:` comment in the adapter).
+
+## Phase: Eval P2 — Path Overrides | 2026-11-12
+### Tasks Completed
+- [x] `main.py`: `--docs-root` and `--output-dir` override `system.docs_root`/`system.output_dir` for one run (stored absolute in the config singleton, applied before any I/O). Given either flag, a missing docs root, an output path that is a file, or an output directory inside the docs root exits 2. Runs without the flags behave as before.
+- [x] `tests/test_main_headless.py`: 5 tests (T1 real Map Maker + mock audit routed by relative flags; T2–T5 exit-2 cases asserting the new messages). They undo conftest's `get_output_dir` patch so the real path code runs.
+- [x] Suite: 153 passed (baseline 148 + 5), disposable copy. Mutation check: the 5 new tests fail against the old `main.py`.
+- [x] Docs: `AGENTS.md`, `README.md`, `docs/CONFIGURATION_GUIDE.md`.
+
+### Next Steps & Continuity
+- Plan `docs/plans/evals/09_P2_PATHS_PLAN.md`. `--set` is deferred (design §6 decision 11) until the first comparison run.
+- A valid ToC or artifact already in `--output-dir` is still reused; the eval runner (H2) must pass a new, empty output directory per run.
+- Next: P3 (`10_P3_RUN_MANIFEST_PLAN.md`, under Fable review).

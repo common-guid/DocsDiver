@@ -398,3 +398,82 @@ def test_allowed_refresh_combinations_run(monkeypatch, tmp_path, write_valid_toc
 
     monkeypatch.setattr(app, "generate_toc", fake_generate_toc)
     _run(monkeypatch, *flags)  # must not raise SystemExit
+
+
+# --- eval P2: --docs-root / --output-dir ---------------------------------------------
+
+def _real_paths(monkeypatch):
+    """Undo conftest's get_output_dir patch and restore system paths after the test."""
+    monkeypatch.delattr(config_loader, "get_output_dir")  # instance patch from conftest; class method shows through
+    system = config_loader.config["system"]
+    for key in ("docs_root", "output_dir"):
+        monkeypatch.setitem(system, key, system[key])
+
+
+def _tree_files(root):
+    return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+
+
+def test_path_flags_route_whole_audit(monkeypatch, tmp_path):
+    import hashlib, shutil
+    import sdaa.src.core.config_loader as cl
+    _real_paths(monkeypatch)
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    for name in ("auth.md", "billing.md"):
+        shutil.copy(os.path.join("docs-for-testing", name), corpus / name)
+    (corpus / "only_here.md").write_text("# Only here\n\nAdmins rotate tokens. Viewers cannot.\n", encoding="utf-8")
+    yaml_path = os.path.join(os.path.dirname(cl.__file__), "../../config/config.yaml")
+    before = hashlib.sha256(open(yaml_path, "rb").read()).hexdigest()
+    monkeypatch.chdir(tmp_path)
+
+    _run(monkeypatch, "--headless", "--docs-root", "corpus", "--output-dir", "run_out")
+
+    out = tmp_path / "run_out"
+    toc = json.loads((out / "ToC.json").read_text(encoding="utf-8"))
+    assert sorted(f["path"] for f in toc["files"]) == ["auth.md", "billing.md", "only_here.md"]
+    for rel in ("artifacts/permissions_agent.md", "artifacts/constraints_agent.md",
+                "artifacts/boundaries_agent.md", "reports/Security_Threat_Model.md"):
+        assert (out / rel).stat().st_size > 0, rel
+    assert all(f.startswith(("corpus/", "run_out/")) for f in _tree_files(tmp_path)), _tree_files(tmp_path)
+    assert hashlib.sha256(open(yaml_path, "rb").read()).hexdigest() == before
+    assert config_loader.get("system.output_dir") == str(out)
+
+
+def _expect_exit_2(monkeypatch, capsys, *flags):
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", *flags)
+    assert exc.value.code == 2
+    return capsys.readouterr().err
+
+
+def test_docs_root_missing_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(tmp_path / "nope"), "--output-dir", str(tmp_path / "run_out"))
+    assert "does not exist or is not a directory" in err
+    assert not (tmp_path / "run_out").exists()
+
+
+def test_docs_root_is_file_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    f = tmp_path / "file.md"
+    f.write_text("x", encoding="utf-8")
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(f), "--output-dir", str(tmp_path / "run_out"))
+    assert "does not exist or is not a directory" in err
+
+
+def test_output_dir_inside_docs_root_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    (tmp_path / "corpus").mkdir()
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(tmp_path / "corpus"), "--output-dir", str(tmp_path / "corpus" / "run_out"))
+    assert "is inside the docs root" in err
+    assert not (tmp_path / "corpus" / "run_out").exists()
+
+
+def test_output_dir_is_file_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    (tmp_path / "corpus").mkdir()
+    f = tmp_path / "run_out"
+    f.write_text("x", encoding="utf-8")
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(tmp_path / "corpus"), "--output-dir", str(f))
+    assert "exists and is not a directory" in err

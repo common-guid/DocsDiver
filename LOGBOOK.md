@@ -13,3 +13,13 @@ Eval phase P1: the OpenRouter adapter span now carries token usage, USD cost and
 main.py can point one run at any corpus and output directory without editing config.yaml, which the eval runner needs; an output directory inside the docs root is refused because the audit would index its own findings.
 
 ---
+# P3 implementation blocked by A3 test failure
+2026-11-12 14:48:29 | feat/eval-p3-run-manifest (platform_engineer)
+Implemented the reviewed run-ID, span tagging, ledger, manifest and 17 tests; work remains uncommitted on feat/eval-p3-run-manifest. Disposable-copy baseline: 153 passed; mutation: 16 failed and 154 passed as expected; final: 169 passed and 1 failed (A3 ledger-empty assertion); stopped without workaround, live calls or PR.
+
+---
+# Complete P3 run manifests and per-run tracing
+2026-11-12 14:56:56 | feat/eval-p3-run-manifest (platform_engineer)
+Added run IDs, all-span session/tags, call provenance and atomic headless manifests following the reviewed P3 plan. Fresh disposable-copy verification passed 170 tests (153 + 17); mutation matched 16 failed/154 passed, and A3 uses the operator-approved actual-globals patch to handle module re-import isolation; no live check was run.
+
+---

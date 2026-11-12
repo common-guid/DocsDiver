@@ -33,6 +33,7 @@ python main.py --coordinator-only --headless --no-rich
 
 - Configure paths, per-agent models, and prompt bindings in `sdaa/config/config.yaml`. `--docs-root`/`--output-dir` override the two paths for one run; given either flag, a missing docs root, a non-directory output path or an output directory inside the docs root exits 2. `.env` supplies provider and Langfuse credentials; `OPENROUTER_API_KEY`/`GEMINI_API_KEY` accept comma-separated keys for HTTP 429 rotation.
 - `--headless` requires a valid ToC, three nonempty worker artifacts, and a nonempty report; `SKIPPED:` placeholders are invalid. It labels outputs `reused`/`generated`. Failures exit 1; conflicting flags exit 2. Success does not establish freshness or quality.
+- `--run-id <id>` sets the ADK and Langfuse session ID; use 1–64 letters, digits, `.`, `_` or `-`, starting with a letter or digit. Omit it for a generated UTC ID. Headless runs write `run_manifest.json` in the output directory on every exit except usage errors; interactive runs write no manifest.
 - `--skip-map-maker` requires a valid existing ToC. `--coordinator-only` additionally requires valid worker artifacts and reruns synthesis without worker LLM calls.
 - `--refresh-toc` rebuilds indexing and the audit; `--refresh-audit` reruns workers/synthesis. Replaced outputs become `<name>.prev`. Refresh-ToC conflicts with skip-map-maker/coordinator-only; refresh-audit conflicts with coordinator-only/toc-only.
 - Mock mode replaces generation, **not Langfuse prompt retrieval**. Full offline audits need prompt stubs; see the headless tests.
@@ -159,6 +160,8 @@ Valid outputs are reused unless refreshed; `core/output_validation.py` defines v
 `utils/prompt_manager.py` fetches Langfuse instructions; retrieval failure yields error-text instructions, not a usable local fallback. Bindings come from YAML except `report-synthesizer`/`production`, hardcoded in the coordinator. Preserve brace sanitization/escaping: ADK interprets braces as state substitutions.
 
 `core/instrumentation.py` shares OpenTelemetry tracing across LangSmith/Langfuse. Tracing and prompt retrieval are separate; disabling observability does not supply prompts.
+
+`core/run_manifest.py` keeps the per-run call ledger and writes headless provenance, corpus/output hashes, usage and outcome. OpenRouter and mock calls are recorded; Gemini is not recorded in P3. The tagging processor sets session and tags on every span when installed; the existing LangSmith tag branch is unchanged.
 
 Adding a worker requires aligning its factory/state key, reporting tool, YAML bindings, both agent trees, output validation/replay mapping, and remote coordinator/synthesis prompts.
 

@@ -17,7 +17,9 @@ def get_model_for_agent(agent_name: str, provider: str) -> BaseLlm:
         An instance of BaseLlm (InstrumentedGemini, OpenRouterModel, or MockModel)
     """
     if provider == "mock":
-        return MockModel(model="mock-model")
+        model = MockModel(model="mock-model")
+        model._agent = agent_name
+        return model
 
     # Get model name from config: agents.<agent_name>.<provider>
     config_path = f"agents.{agent_name}.{provider}"
@@ -30,12 +32,14 @@ def get_model_for_agent(agent_name: str, provider: str) -> BaseLlm:
             model_name = "moonshotai/kimi-k2.5" # Fallback
 
     if provider == "gemini":
-        return InstrumentedGemini(model=model_name)
+        model = InstrumentedGemini(model=model_name)
 
     elif provider == "openrouter":
         base_url = config_loader.get("providers.openrouter.base_url", "https://openrouter.ai/api/v1")
-        return OpenRouterModel(model_name=model_name, base_url=base_url)
+        model = OpenRouterModel(model_name=model_name, base_url=base_url)
 
     else:
         # Unknown provider, return Mock or error.
-        return MockModel(model=f"unknown-{provider}")
+        model = MockModel(model=f"unknown-{provider}")
+    model._agent = agent_name
+    return model

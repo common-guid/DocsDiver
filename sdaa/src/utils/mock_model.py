@@ -1,10 +1,15 @@
 from typing import AsyncGenerator, Optional, Any
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
+import logging
+from sdaa.src.core.run_manifest import prompt_ref, record_call
+
+logger = logging.getLogger(__name__)
 
 class MockModel(BaseLlm):
     model: str = "mock-model"
     _langfuse_prompt: Optional[Any] = None
+    _agent: Optional[str] = None
 
     def set_langfuse_prompt(self, prompt_obj: Any):
         """Mock implementation of setting Langfuse prompt."""
@@ -13,6 +18,15 @@ class MockModel(BaseLlm):
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
+        try:
+            record_call({
+                "agent": self._agent, "model": "mock-model", "response_model": "mock-model",
+                "provider": "mock", "prompt": prompt_ref(self._langfuse_prompt),
+                "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+                "cost_usd": 0.0, "metered": True,
+            })
+        except Exception as e:
+            logger.warning("Failed to record mock call: %s", e)
 
         contents_text = str(llm_request.contents).lower()
         system_text = str(llm_request.config.system_instruction).lower() if llm_request.config and llm_request.config.system_instruction else ""

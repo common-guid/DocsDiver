@@ -336,3 +336,18 @@ Implemented `docs/plans/TACTICAL_3_REFRESH_AND_COMPLETION.md` (ROADMAP release 0
 - Plan `docs/plans/evals/09_P2_PATHS_PLAN.md`. `--set` is deferred (design §6 decision 11) until the first comparison run.
 - A valid ToC or artifact already in `--output-dir` is still reused; the eval runner (H2) must pass a new, empty output directory per run.
 - Next: P3 (`10_P3_RUN_MANIFEST_PLAN.md`, under Fable review).
+
+## Phase: Eval P3 — Run Manifest, Run ID and Call Ledger | 2026-11-12
+### Tasks Completed
+- [x] `main.py`: validated or generated run ID, shared ADK/Langfuse session, start-of-run corpus hash and headless manifest on every runtime exit. Usage errors and interactive runs write no manifest.
+- [x] `core/run_manifest.py`: standard-library call ledger, deterministic corpus hash, git state, per-agent usage and atomic `run_manifest.json`. Output statuses use the regeneration set, so replayed artifacts remain `reused`.
+- [x] OpenRouter and mock models record calls with agent and prompt provenance. Ledger failures do not interrupt generation; the synthesizer resets stale prompt metadata before fetching.
+- [x] The tagging processor sets session and Langfuse tags on every span, leaving the existing LangSmith branch unchanged.
+- [x] Suite: 170 passed (baseline 153 + 17), fresh disposable copy; syntax checks pass. Two existing tests updated as planned.
+- [x] Mutation check against pre-P3 code: 16 failed, 154 passed. M1–M10, C1, A1–A3, I1 and F1 fail; I2 and all 153 existing tests pass.
+- [x] A3 isolation fix approved by the operator: patch the adapter method's actual globals because the payload test re-imports its module; keep the ledger-empty assertion.
+- [x] Docs: `AGENTS.md`, `README.md`, `docs/CONFIGURATION_GUIDE.md`, `docs/OBSERVABILITY_AND_PROMPTS.md`.
+
+### Next Steps & Continuity
+- Plan: `docs/plans/evals/10_P3_RUN_MANIFEST_PLAN.md`. Live check not run; it requires separate operator approval.
+- Gemini call accounting and OpenRouter routing metadata remain outside P3.

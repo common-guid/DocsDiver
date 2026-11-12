@@ -153,6 +153,7 @@ python main.py [FLAGS]
 | | `--refresh-audit` | Flag (boolean) | `False` | Reruns all workers and synthesis, reusing a valid ToC; previous files are kept as `.prev`. Incompatible with `--coordinator-only` and `--toc-only`. |
 | | `--docs-root` | Path | `system.docs_root` | Audits this directory for this run, without editing `config.yaml`. Exit `2` if it is missing or not a directory. |
 | | `--output-dir` | Path | `system.output_dir` | Writes the ToC, artifacts and report here for this run. Exit `2` if it exists as a file or is inside the docs root. Relative paths resolve against the working directory; both are stored absolute. |
+| | `--run-id` | ID | Generated UTC timestamp + 6 hex digits | Sets the ADK and Langfuse session ID. Use 1–64 letters, digits, `.`, `_` or `-`, starting with a letter or digit; invalid IDs exit `2`. Headless runs write `run_manifest.json` on every exit except usage errors. |
 
 ---
 

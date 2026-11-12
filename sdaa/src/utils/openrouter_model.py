@@ -9,6 +9,7 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 from pydantic import PrivateAttr
 from sdaa.src.core.key_rotator import get_key_rotator
+from sdaa.src.core.run_manifest import prompt_ref, record_call
 
 try:
     from langfuse import LangfuseOtelSpanAttributes
@@ -21,12 +22,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _record_usage(span, response) -> None:
+def _record_usage(span, response) -> tuple[dict, Optional[float]]:
     """Copy OpenRouter token counts and USD cost onto the span. Never raises."""
     try:
         usage = getattr(response, "usage", None)
         if usage is None:
-            return
+            return {}, None
         counts = {
             key: getattr(usage, field, None)
             for key, field in (("input", "prompt_tokens"), ("output", "completion_tokens"), ("total", "total_tokens"))
@@ -37,8 +38,11 @@ def _record_usage(span, response) -> None:
         cost = getattr(usage, "cost", None)
         if type(cost) in (int, float):
             span.set_attribute("langfuse.observation.cost_details", json.dumps({"total": cost}))
+            return counts, float(cost)
+        return counts, None
     except Exception as e:  # observability must not fail a model call
         logger.warning(f"Failed to record OpenRouter usage on span: {e}")
+        return {}, None
 
 REASONING_MIME_TYPE = "application/x-reasoning-details"
 
@@ -46,6 +50,7 @@ class OpenRouterModel(BaseLlm):
     model: str
     client: Any  # AsyncOpenAI; Any so the client can be swapped on key rotation
     _langfuse_prompt: Optional[Any] = None
+    _agent: Optional[str] = None
     _rotator: Any = PrivateAttr()
     _base_url: str = PrivateAttr()
 
@@ -351,13 +356,37 @@ class OpenRouterModel(BaseLlm):
 
                 if should_stream:
                     # ponytail: streamed calls record no usage; headless never streams. Read usage from the final chunk if chat cost matters.
+                    try:
+                        record_call({
+                            "agent": self._agent, "model": self.model,
+                            "response_model": getattr(response, "model", None),
+                            "provider": getattr(response, "provider", None),
+                            "prompt": prompt_ref(self._langfuse_prompt),
+                            "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+                            "cost_usd": 0.0, "metered": False,
+                        })
+                    except Exception as e:
+                        logger.warning("Failed to record OpenRouter call: %s", e)
                     async for chunk in response:
                         content_text = chunk.choices[0].delta.content or ""
                         if content_text:
                             content = types.Content(parts=[types.Part.from_text(text=content_text)])
                             yield LlmResponse(content=content)
                 else:
-                    _record_usage(span, response)
+                    counts, cost = _record_usage(span, response)
+                    try:
+                        record_call({
+                            "agent": self._agent, "model": self.model,
+                            "response_model": getattr(response, "model", None),
+                            "provider": getattr(response, "provider", None),
+                            "prompt": prompt_ref(self._langfuse_prompt),
+                            "input_tokens": counts.get("input", 0),
+                            "output_tokens": counts.get("output", 0),
+                            "total_tokens": counts.get("total", 0),
+                            "cost_usd": cost, "metered": bool(counts) and cost is not None,
+                        })
+                    except Exception as e:
+                        logger.warning("Failed to record OpenRouter call: %s", e)
                     message = response.choices[0].message
                     parts = []
 

@@ -11,6 +11,11 @@ import pytest
 
 from sdaa.src.core.config_loader import config_loader
 
+@pytest.fixture(autouse=True)
+def _clear_call_ledger():
+    from sdaa.src.core import run_manifest
+    run_manifest.LEDGER.clear()
+
 
 @pytest.fixture(autouse=True)
 def _dummy_llm_env(monkeypatch):

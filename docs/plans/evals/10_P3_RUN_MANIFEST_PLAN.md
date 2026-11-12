@@ -1,6 +1,6 @@
 # Plan: Eval Phase P3, Run Manifest, Run ID and Call Ledger
 
-Status: Reviewed by Fable 5.2 (`12_P3_PLAN_REVIEW.md`, approve with changes); all 15 findings applied 2026-11-12. Ready to implement after P2 merges.
+Status: implemented (PR #51, 2026-11-12); 170 passed. Live check (§6) pending operator approval. Reviewed by Fable 5.2 (`12_P3_PLAN_REVIEW.md`); all 15 findings applied. One deviation: A3 patches `OpenRouterModel.generate_content_async.__globals__`, because `tests/test_openrouter_payload.py` re-imports the adapter module.
 Created 2026-11-12 · Base: `ADK_master` **after P2 merges** (`09_P2_PATHS_PLAN.md`) · Design: `05_EVAL_DESIGN.md` §3.6 ("P3, run manifest"), §3.7 (sessions) and §4 · Also closes the vault task "Set Langfuse trace tags on every span"
 
 ## 1. Goal
@@ -21,7 +21,7 @@ The eval runner (H2) judges a run valid from the manifest alone. The report (H3)
 - **F2. Langfuse v4 needs session and tags on every span.** The Langfuse OpenTelemetry docs ("Propagating Trace Attributes to All Spans", fetched 2026-11-12) say `sessionId` (`langfuse.session.id` or `session.id`) and `tags` (`langfuse.trace.tags`) must be on **all** spans for filtering in v4. Today `TaggingSpanProcessor` uses `parent_context is None` as its root check (`sdaa/src/core/instrumentation.py:25-41`). This matches most spans started with the implicit context, including children; only `call_llm` lacks tags in review S1. The docs recommend OpenTelemetry baggage or the SDK's `propagate_attributes()`. Here one process is one run, so a span processor that stamps every span in `on_start` has the same effect and needs no context plumbing.
 - **F3. Attribute names.** `langfuse` 5.2.0: `LangfuseOtelSpanAttributes.TRACE_SESSION_ID == "session.id"` and `TRACE_TAGS == "langfuse.trace.tags"`. The fallback class in `instrumentation.py:17-19` defines only `TRACE_TAGS`.
 - **F4. Processor wiring.** `TaggingSpanProcessor()` is added only when an exporter is configured (`instrumentation.py:146`). Its `on_start` runs before any span is exported, so attributes set there reach both the repo exporter and the Langfuse SDK processor added by `prompt_manager.py:33` (P1 plan F12).
-- **F5. The model doesn't know its agent.** `get_model_for_agent(agent_name, provider)` (`sdaa/src/core/model_factory.py`) builds a new model instance per agent, but it doesn't tell the model which agent it serves. In mock mode it returns early with `MockModel(model="mock-model")`. Map Maker gets its model from the factory as `map_maker` (`main.py:162`).
+- **F5. The model doesn't know its agent.** `get_model_for_agent(agent_name, provider)` (`sdaa/src/core/model_factory.py`) builds a new model instance per agent, but it doesn't tell the model which agent it serves. In mock mode it returns early with `MockModel(model="mock-model")`. Map Maker gets its model from the factory as `map_maker` (`main.py:183`, P2 version).
 - **F6. Prompt version per call.** Workers and the synthesizer call `model.set_langfuse_prompt(prompt_obj)` only when the fetch succeeds:
   - workers: `workers.py:31-38` and the two siblings;
   - synthesizer: `coordinator.py:~110`, on every instruction build.

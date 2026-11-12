@@ -73,6 +73,7 @@ def create_coordinator_synthesizer(provider: str = "openrouter", model=None):
         model = get_model_for_agent("coordinator", provider)
 
     def _build_synthesis_prompt(ctx: ReadonlyContext) -> str:
+        if hasattr(model, "set_langfuse_prompt"): model.set_langfuse_prompt(None)
         # Session state holds tool acknowledgements, not findings (loader replay and fresh runs
         # alike), so read the bodies from the artifact files the reporting tools wrote.
         artifacts_dir = config_loader.get_artifacts_dir()

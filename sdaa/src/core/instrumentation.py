@@ -17,13 +17,20 @@ except Exception:
     # Handle Python 3.14 + Pydantic v1 incompatibility or missing library
     class LangfuseOtelSpanAttributes:
         TRACE_TAGS = "langfuse.trace.tags"
+        TRACE_SESSION_ID = "session.id"
     LANGFUSE_AVAILABLE = False
 
 load_dotenv()
 
 
 class TaggingSpanProcessor(SpanProcessor):
-    def on_start(self, span, parent_context):
+    def __init__(self, session_id=None):
+        self.session_id = session_id
+
+    def on_start(self, span, parent_context=None):
+        span.set_attribute(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"])
+        if self.session_id is not None:
+            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_SESSION_ID, self.session_id)
         # Check if it is a root span (no parent or parent is invalid)
         is_root = False
         if parent_context is None:
@@ -34,9 +41,6 @@ class TaggingSpanProcessor(SpanProcessor):
                 is_root = True
 
         if is_root:
-            # Add the tag using the Langfuse attribute key
-            # Langfuse expects a list of strings
-            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"])
             # LangSmith tags (list of strings)
             span.set_attribute("langsmith.span.tags", ["ADK-DocsDiver"])
 
@@ -50,7 +54,7 @@ class TaggingSpanProcessor(SpanProcessor):
         pass
 
 
-def setup_instrumentation():
+def setup_instrumentation(session_id=None):
     """Configure observability for LangSmith + Google ADK (and optionally Langfuse).
 
     LangSmith tracing is configured via langsmith.integrations.otel.configure, which sets up
@@ -142,8 +146,8 @@ def setup_instrumentation():
         print("Langfuse credentials not found.")
 
     if has_exporter:
-        # Root-span tagging for both LangSmith and Langfuse traces
-        provider.add_span_processor(TaggingSpanProcessor())
+        # Session and Langfuse tags on every span; existing LangSmith tagging unchanged.
+        provider.add_span_processor(TaggingSpanProcessor(session_id))
         trace.set_tracer_provider(provider)
 
         # Initialize Google ADK Instrumentation

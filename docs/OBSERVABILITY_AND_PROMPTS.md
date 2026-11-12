@@ -34,6 +34,22 @@ Both Langfuse and LangSmith telemetry exporters attach to a single `TracerProvid
    - The exporter sends the `x-langfuse-ingestion-version: 4` header, which Langfuse Cloud requires after its v4 cutover.
 4. **OpenRouter Usage and Cost**:
    - For OpenRouter calls, the `OpenRouterModel.generate_content` span carries OpenRouter's token usage (`langfuse.observation.usage_details`) and USD cost (`langfuse.observation.cost_details`), and is the only span that does.
+5. **One Session per Run**:
+   - `--run-id <id>` sets both the ADK session ID and Langfuse `session.id`. If omitted, the CLI generates `YYYYMMDDTHHMMSSZ-<6 hex>` in UTC, including for interactive runs.
+   - When installed, `TaggingSpanProcessor` sets `session.id` and `langfuse.trace.tags = ["ADK-DocsDiver"]` on every span, including Map Maker's direct calls and ADK `call_llm` spans.
+   - The existing LangSmith tag branch is unchanged; its implicit-context check can also tag child spans.
+   - The processor is installed only when an exporter is configured. For a Langfuse-only run, verify the log contains `Langfuse observability initialized`; a failed health check prevents installation.
+
+### 2.2 Headless Run Manifest
+
+- Headless runs write `run_manifest.json` in the output directory on success, exit 1 and uncaught exceptions. Usage errors and interactive runs write no manifest.
+- The manifest records run ID, timestamps, arguments, effective paths, code state, the start-of-run corpus hash, per-agent models and prompts, the call ledger, output hashes and outcome.
+- Output statuses come from the regeneration set, not file timestamps. Replayed worker artifacts remain `reused` even though their reporting tools rewrite them.
+- `usage.cost_usd` is the cross-check for Langfuse cost: compare it with the sum of costs over distinct `OpenRouterModel.generate_content` observation IDs, not ADK wrapper spans.
+- Calls without usage/cost and streaming calls count as unmetered; their tokens and cost contribute zero to aggregate usage.
+- OpenRouter and mock calls are recorded. `InstrumentedGemini` calls are not recorded in P3; a zero-call Gemini manifest is not evidence of a fully metered audit.
+- Prompt name/version come from the object used by each call. Map Maker's inline prompt has null name/version. The synthesizer clears its previous prompt before every fetch, so a failed fetch cannot retain a stale version.
+- The `provider` field may be null for OpenRouter responses. No routing-metadata request is added in P3.
 
 ---
 

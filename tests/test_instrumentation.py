@@ -90,10 +90,15 @@ class TestInstrumentation(unittest.TestCase):
 
             mock_span.reset_mock()
 
-            # Case 2: Parent is a valid span (should NOT add tag)
+            # Case 2: A valid parent still gets Langfuse tags, but not LangSmith tags.
             mock_get_span.return_value = MagicMock()
             processor.on_start(mock_span, "some_context")
-            mock_span.set_attribute.assert_not_called()
+            mock_span.set_attribute.assert_any_call(
+                LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"]
+            )
+            self.assertNotIn("langsmith.span.tags", [
+                call.args[0] for call in mock_span.set_attribute.call_args_list
+            ])
 
     @patch('sdaa.src.core.instrumentation.LANGFUSE_AVAILABLE', False)
     @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
@@ -119,6 +124,47 @@ class TestInstrumentation(unittest.TestCase):
 
         # Should not initialize exporter
         MockExporter.assert_not_called()
+
+def test_session_and_tags_on_every_span():
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    provider = TracerProvider()
+    exporter = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    provider.add_span_processor(TaggingSpanProcessor("run-x"))
+    tracer = provider.get_tracer(__name__)
+    root = tracer.start_span("root")
+    child = tracer.start_span("child", context=trace.set_span_in_context(root))
+    child.end()
+    root.end()
+    spans = {span.name: span for span in exporter.get_finished_spans()}
+    for span in spans.values():
+        assert span.attributes["session.id"] == "run-x"
+        assert list(span.attributes["langfuse.trace.tags"]) == ["ADK-DocsDiver"]
+    assert list(spans["root"].attributes["langsmith.span.tags"]) == ["ADK-DocsDiver"]
+    assert "langsmith.span.tags" not in spans["child"].attributes
+    provider.shutdown()
+
+
+def test_no_session_without_run_id():
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    provider = TracerProvider()
+    exporter = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    provider.add_span_processor(TaggingSpanProcessor())
+    tracer = provider.get_tracer(__name__)
+    root = tracer.start_span("root")
+    child = tracer.start_span("child", context=trace.set_span_in_context(root))
+    child.end()
+    root.end()
+    assert all("session.id" not in span.attributes for span in exporter.get_finished_spans())
+    provider.shutdown()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -239,7 +239,8 @@ def test_coordinator_only_with_skipped_artifact_exits_1_and_touches_nothing(monk
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, "--headless", "--coordinator-only")
     assert exc.value.code == 1
-    assert _tree(out) == before
+    assert [p for p in _tree(out) if p != "run_manifest.json"] == before
+    assert json.loads((out / "run_manifest.json").read_text())["outcome"]["exit_code"] == 1
 
 
 def test_coordinator_only_with_missing_artifact_exits_1_and_writes_no_placeholder(monkeypatch, tmp_path, write_valid_toc):

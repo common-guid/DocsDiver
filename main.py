@@ -3,7 +3,12 @@ import asyncio
 import argparse
 import os
 import logging
+import re
+import secrets
+from datetime import datetime, timezone
 from pathlib import Path
+from sdaa.src.core.run_manifest import LEDGER, tree_hash, write_manifest
+from sdaa.src.tools import file_ops
 from sdaa.src.core.instrumentation import setup_instrumentation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
@@ -131,6 +136,7 @@ async def main():
     parser.add_argument("--refresh-audit", action="store_true", help="Rerun all workers and synthesis, reusing a valid ToC; previous outputs are kept as .prev")
     parser.add_argument("--docs-root", help="Directory of Markdown docs to audit for this run (overrides system.docs_root)")
     parser.add_argument("--output-dir", help="Directory for this run's ToC, artifacts and report (overrides system.output_dir)")
+    parser.add_argument("--run-id", help="Run and Langfuse session ID (1-64 letters, digits, '.', '_' or '-')")
     args = parser.parse_args()
 
     # Contradictory flags are usage errors (exit 2), reported before any I/O.
@@ -143,11 +149,63 @@ async def main():
     if args.refresh_audit and args.toc_only:
         parser.error("--refresh-audit cannot be combined with --toc-only")
     apply_path_overrides(parser, args)
+    if args.run_id is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.run_id):
+        value = args.run_id
+        parser.error(f"--run-id {value!r}: use 1-64 letters, digits, '.', '_' or '-', starting with a letter or digit")
+    started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + secrets.token_hex(3)
+    LEDGER.clear()
+    corpus = {"tree_hash": None, "file_count": None}
+    try:
+        docs_root = file_ops._get_docs_root()
+        if not os.path.isdir(docs_root):
+            raise NotADirectoryError(docs_root)
+        digest, count = tree_hash(docs_root)
+        corpus = {"tree_hash": digest, "file_count": count}
+    except Exception as e:
+        logging.getLogger(__name__).warning("Could not hash corpus: %s", e)
+
+    code = 1                      # anything but a normal return is a failure
+    regenerated = set()
+    try:
+        await _run(args, parser, run_id, regenerated)
+        code = 0
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        raise
+    finally:
+        if args.headless:
+            try:
+                output_dir = config_loader.get_output_dir()
+                toc_path = os.path.join(output_dir, config_loader.get("system.toc_filename", "ToC.json"))
+                output_files = {
+                    os.path.basename(path): os.path.abspath(path)
+                    for path in [toc_path] + audit_output_paths()
+                }
+                problems = toc_problems(toc_path)
+                if not args.toc_only:
+                    problems += audit_output_problems()
+                write_manifest(
+                    os.path.join(output_dir, "run_manifest.json"),
+                    run_id=run_id, started_at=started_at, argv=sys.argv,
+                    provider=args.model,
+                    paths={"docs_root": os.path.abspath(file_ops._get_docs_root()),
+                           "output_dir": os.path.abspath(output_dir)},
+                    repo_root=os.path.dirname(os.path.abspath(__file__)),
+                    corpus=corpus, output_files=output_files,
+                    generated={os.path.abspath(path) for path in regenerated},
+                    exit_code=code, problems=problems,
+                )
+            except Exception as e:
+                print(f"run manifest not written: {e!r}", file=sys.stderr)
+
+
+async def _run(args, parser, run_id, regenerated):
 
     ui = RichUI(no_rich=args.no_rich)
     suppress_genai_non_text_warning()
 
-    setup_instrumentation()
+    setup_instrumentation(session_id=run_id)
     ui.print_banner("SDAA: Security Documentation Analysis Agent")
     ui.print_status(f"Using provider: {args.model}")
 
@@ -182,6 +240,7 @@ async def main():
                 # Instantiate model specifically for map_maker
                 map_maker_model = get_model_for_agent("map_maker", args.model)
                 await generate_toc(model=map_maker_model)
+                regenerated.add(toc_path)
             except Exception as e:
                 # A missing or partial index is fatal in every mode.
                 ui.print_error(f"generating ToC: {e}")
@@ -216,7 +275,7 @@ async def main():
         session_service=session_service,
         memory_service=memory_service
     )
-    session_id = "session_001"
+    session_id = run_id
     user_id = "user_001"
 
     # Create Session explicitly
@@ -262,6 +321,7 @@ async def main():
         # Synthesis always regenerates the report; set it aside with any invalid output so a run
         # that fails to rewrite it ends with the report missing, not stale.
         generated = set(stale) | {report_path}
+        regenerated.update(generated)
         set_aside(sorted(generated))
         ui.print_status(
             "\n[Phase 2.5] Running Pre-chat Audit..."

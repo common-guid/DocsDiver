@@ -135,6 +135,7 @@ python main.py
 | `--refresh-audit` | Rerun all workers and synthesis, reusing a valid ToC. The previous artifacts and report are kept as `.prev`. |
 | `--docs-root <dir>` | Audit this directory instead of `system.docs_root`, for this run only. Must be an existing directory. |
 | `--output-dir <dir>` | Write the ToC, artifacts and report here instead of `system.output_dir`, for this run only. Must not be inside the docs root (the audit would index its own findings). |
+| `--run-id <id>` | Set the ADK and Langfuse session ID. Use 1–64 letters, digits, `.`, `_` or `-`, starting with a letter or digit. Omit for a generated UTC timestamp plus 6 hex digits. Headless runs write `run_manifest.json` in the output directory on every exit except usage errors; interactive runs do not. |
 | `--no-rich` | Disable the Rich terminal UI for plain text output. |
 | `--headless` | Run non-interactively: Map Maker + Pre-chat Audit, then exit. Exit code `0` only if there is a valid ToC and four valid outputs (three artifacts and the report); `1` for a runtime or validation failure; `2` for contradictory flags. The final status line names each output as `reused` or `generated`. Designed for pipeline/CI use. |
 

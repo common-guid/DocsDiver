@@ -151,6 +151,8 @@ python main.py [FLAGS]
 | | `--headless` | Flag (boolean) | `False` | Runs Map Maker and the pre-chat audit non-interactively. Exit `0` only with a valid ToC and four valid outputs; `1` on failure; `2` on contradictory flags. |
 | | `--refresh-toc` | Flag (boolean) | `False` | Rebuilds the ToC and then the whole audit; previous files are kept as `.prev`. Incompatible with `--skip-map-maker` and `--coordinator-only`. |
 | | `--refresh-audit` | Flag (boolean) | `False` | Reruns all workers and synthesis, reusing a valid ToC; previous files are kept as `.prev`. Incompatible with `--coordinator-only` and `--toc-only`. |
+| | `--docs-root` | Path | `system.docs_root` | Audits this directory for this run, without editing `config.yaml`. Exit `2` if it is missing or not a directory. |
+| | `--output-dir` | Path | `system.output_dir` | Writes the ToC, artifacts and report here for this run. Exit `2` if it exists as a file or is inside the docs root. Relative paths resolve against the working directory; both are stored absolute. |
 
 ---
 

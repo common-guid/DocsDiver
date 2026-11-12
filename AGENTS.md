@@ -31,7 +31,7 @@ python main.py -m mock --toc-only --no-rich      # Index with a local mock model
 python main.py --coordinator-only --headless --no-rich
 ```
 
-- Configure paths, per-agent models, and prompt bindings in `sdaa/config/config.yaml` (no CLI path overrides). `.env` supplies provider and Langfuse credentials; `OPENROUTER_API_KEY`/`GEMINI_API_KEY` accept comma-separated keys for HTTP 429 rotation.
+- Configure paths, per-agent models, and prompt bindings in `sdaa/config/config.yaml`. `--docs-root`/`--output-dir` override the two paths for one run; given either flag, a missing docs root, a non-directory output path or an output directory inside the docs root exits 2. `.env` supplies provider and Langfuse credentials; `OPENROUTER_API_KEY`/`GEMINI_API_KEY` accept comma-separated keys for HTTP 429 rotation.
 - `--headless` requires a valid ToC, three nonempty worker artifacts, and a nonempty report; `SKIPPED:` placeholders are invalid. It labels outputs `reused`/`generated`. Failures exit 1; conflicting flags exit 2. Success does not establish freshness or quality.
 - `--skip-map-maker` requires a valid existing ToC. `--coordinator-only` additionally requires valid worker artifacts and reruns synthesis without worker LLM calls.
 - `--refresh-toc` rebuilds indexing and the audit; `--refresh-audit` reruns workers/synthesis. Replaced outputs become `<name>.prev`. Refresh-ToC conflicts with skip-map-maker/coordinator-only; refresh-audit conflicts with coordinator-only/toc-only.

@@ -1,6 +1,6 @@
 # Plan: Eval Phase P2, Path Overrides
 
-Status: ready to implement · Created 2026-11-12 · Base: `ADK_master` · Design: `05_EVAL_DESIGN.md` §3.6 ("P2, overrides") and §4 · No Fable review (small, mock-only, no spend; `docs/plans/2026-11-12_TASKS.md`)
+Status: revised 2026-11-12 after the first implementation attempt stopped on 4 test failures, both caused by plan errors (F6, F9). The corrected code and tests below were run by the planner in a disposable copy: 153 passed (148 + 5); the 5 new tests all fail against the old `main.py`. Ready to implement · Created 2026-11-12 · Base: `ADK_master` · Design: `05_EVAL_DESIGN.md` §3.6 ("P2, overrides") and §4 · No Fable review (small, mock-only, no spend; `docs/plans/2026-11-12_TASKS.md`)
 
 ## 1. Goal
 
@@ -22,7 +22,11 @@ Both override the values in `sdaa/config/config.yaml` for one run, without editi
 - **F3.** `get_output_dir` creates the directory (`os.makedirs`). A relative path resolves against the working directory, the same as a relative YAML value.
 - **F4.** Usage errors already exit 2 through `parser.error`, before any I/O (`main.py:113-121`).
 - **F5.** If the output directory is inside the docs root, the worker artifacts (`.md`) sit inside the corpus. A later Map Maker run would index the audit's own findings, and an eval would grade a contaminated run. No check prevents this today.
-- **F6.** The existing headless tests isolate output by monkeypatching `get_output_dir` and related methods (`tests/test_main_headless.py:49`, `_isolate_output_dirs`). The new tests must **not** use that helper, because it would bypass the code under test.
+- **F6.** Two fixtures replace `get_output_dir`, so a test that leaves them in place can't tell whether `--output-dir` works:
+  - `tests/conftest.py`, autouse `_isolated_output_dir`: in **every** test, it creates `tmp_path/out` and patches `config_loader.get_output_dir` on the instance to return it;
+  - `_isolate_output_dirs` in `tests/test_main_headless.py:49`.
+  The new tests remove the conftest patch with `monkeypatch.delattr(config_loader, "get_output_dir")`, which exposes the real class method, and never use a directory named `out`. They don't use `_isolate_output_dirs` or `_seed`.
+- **F9.** `tests/test_factory_and_integration.py` (`test_main_calls_factory_correctly`, `test_main_calls_factory_for_all`) patches `main.config_loader` with a `MagicMock` whose `get` returns one value for every key. If validation runs when no path flag is given, those tests see docs root == output directory and exit 2. So validation runs only when a flag is given.
 - **F7.** A mock run of the real Map Maker works offline: the mock model generates and Map Maker's prompt is inline (verified by the `--toc-only` step in `docs/plans/REMOVE_VENDOR_TEST_DOCS.md`). The worker and synthesis prompts are stubbed by the autouse `_stub_prompts` fixture in `tests/test_main_headless.py`.
 - **F8a. Prototype, 2026-11-12.** §4.1 applied to a disposable copy:
   - `-m mock --toc-only --docs-root corpus --output-dir out` (relative paths) exited 0, indexed exactly the three corpus files and wrote only `out/ToC.json`;
@@ -38,7 +42,8 @@ Both override the values in `sdaa/config/config.yaml` for one run, without editi
 - **D2. Rules:**
   - `--docs-root`, when given, must be an existing directory. A docs root that comes from YAML keeps today's behaviour: Map Maker fails with exit 1.
   - The output directory must not exist as a non-directory.
-  - The output directory must not be the docs root or inside it (F5). This applies to YAML values too. The default config (`docs-for-testing`, `output`) passes.
+  - The output directory must not be the docs root or inside it (F5).
+  - **None of this runs unless `--docs-root` or `--output-dir` is given** (F9). A run configured only by YAML behaves exactly as before. The eval runner always passes both flags.
 - **D3. Paths are stored absolute** (`os.path.abspath(os.path.expanduser(...))`). A later `chdir` can't move them, and the P3 manifest can record exactly where the run read and wrote.
 - **D4. All modes.** The flags apply to interactive, `--toc-only`, `--headless` and every other mode. They don't interact with the refresh flags.
 - **D5. Not in scope:**
@@ -57,11 +62,13 @@ parser.add_argument("--docs-root", help="Directory of Markdown docs to audit for
 parser.add_argument("--output-dir", help="Directory for this run's ToC, artifacts and report (overrides system.output_dir)")
 ```
 
-Add `from pathlib import Path` to the imports (`main.py` doesn't import it today), and this function above `main()`:
+Add `from pathlib import Path` to the imports (`main.py` doesn't import it today), and this function above `main()`. This is the verified version:
 
 ```python
 def apply_path_overrides(parser, args):
     """Write --docs-root/--output-dir into the config, then validate the effective paths (exit 2 on error)."""
+    if args.docs_root is None and args.output_dir is None:
+        return
     system = config_loader.config.setdefault("system", {})
     if args.docs_root is not None:
         system["docs_root"] = os.path.abspath(os.path.expanduser(args.docs_root))
@@ -84,31 +91,101 @@ Call `apply_path_overrides(parser, args)` immediately after the last `parser.err
 
 ### 4.2 Tests: `tests/test_main_headless.py`
 
-Add one helper and five tests. The autouse `_stub_prompts` fixture already applies. Don't use `_isolate_output_dirs` or `_seed` (F6).
+Append this block to the end of the file, unchanged. It is the verified version, and the file's existing imports already cover it. The autouse `_stub_prompts` fixture supplies the worker prompts. T1 runs the real Map Maker with the mock model.
+
+| # | Test | What it proves |
+|---|---|---|
+| T1 | `test_path_flags_route_whole_audit` | With relative paths, the whole mock audit reads only the given corpus and writes only to the given output directory. `config.yaml` is unchanged, and the stored path is absolute. |
+| T2 | `test_docs_root_missing_exits_2` | Exit 2 with the new message; the output directory isn't created. |
+| T3 | `test_docs_root_is_file_exits_2` | Exit 2 with the new message. |
+| T4 | `test_output_dir_inside_docs_root_exits_2` | Exit 2; nothing is created inside the corpus. |
+| T5 | `test_output_dir_is_file_exits_2` | Exit 2 with the new message. |
 
 ```python
-def _pin_system_paths(monkeypatch):
-    """Restore system.docs_root/output_dir after the test; main() writes them into the singleton."""
+# --- eval P2: --docs-root / --output-dir ---------------------------------------------
+
+def _real_paths(monkeypatch):
+    """Undo conftest's get_output_dir patch and restore system paths after the test."""
+    monkeypatch.delattr(config_loader, "get_output_dir")  # instance patch from conftest; class method shows through
     system = config_loader.config["system"]
     for key in ("docs_root", "output_dir"):
         monkeypatch.setitem(system, key, system[key])
+
+
+def _tree_files(root):
+    return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+
+
+def test_path_flags_route_whole_audit(monkeypatch, tmp_path):
+    import hashlib, shutil
+    import sdaa.src.core.config_loader as cl
+    _real_paths(monkeypatch)
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    for name in ("auth.md", "billing.md"):
+        shutil.copy(os.path.join("docs-for-testing", name), corpus / name)
+    (corpus / "only_here.md").write_text("# Only here\n\nAdmins rotate tokens. Viewers cannot.\n", encoding="utf-8")
+    yaml_path = os.path.join(os.path.dirname(cl.__file__), "../../config/config.yaml")
+    before = hashlib.sha256(open(yaml_path, "rb").read()).hexdigest()
+    monkeypatch.chdir(tmp_path)
+
+    _run(monkeypatch, "--headless", "--docs-root", "corpus", "--output-dir", "run_out")
+
+    out = tmp_path / "run_out"
+    toc = json.loads((out / "ToC.json").read_text(encoding="utf-8"))
+    assert sorted(f["path"] for f in toc["files"]) == ["auth.md", "billing.md", "only_here.md"]
+    for rel in ("artifacts/permissions_agent.md", "artifacts/constraints_agent.md",
+                "artifacts/boundaries_agent.md", "reports/Security_Threat_Model.md"):
+        assert (out / rel).stat().st_size > 0, rel
+    assert all(f.startswith(("corpus/", "run_out/")) for f in _tree_files(tmp_path)), _tree_files(tmp_path)
+    assert hashlib.sha256(open(yaml_path, "rb").read()).hexdigest() == before
+    assert config_loader.get("system.output_dir") == str(out)
+
+
+def _expect_exit_2(monkeypatch, capsys, *flags):
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, "--headless", *flags)
+    assert exc.value.code == 2
+    return capsys.readouterr().err
+
+
+def test_docs_root_missing_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(tmp_path / "nope"), "--output-dir", str(tmp_path / "run_out"))
+    assert "does not exist or is not a directory" in err
+    assert not (tmp_path / "run_out").exists()
+
+
+def test_docs_root_is_file_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    f = tmp_path / "file.md"
+    f.write_text("x", encoding="utf-8")
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(f), "--output-dir", str(tmp_path / "run_out"))
+    assert "does not exist or is not a directory" in err
+
+
+def test_output_dir_inside_docs_root_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    (tmp_path / "corpus").mkdir()
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(tmp_path / "corpus"), "--output-dir", str(tmp_path / "corpus" / "run_out"))
+    assert "is inside the docs root" in err
+    assert not (tmp_path / "corpus" / "run_out").exists()
+
+
+def test_output_dir_is_file_exits_2(monkeypatch, tmp_path, capsys):
+    _real_paths(monkeypatch)
+    (tmp_path / "corpus").mkdir()
+    f = tmp_path / "run_out"
+    f.write_text("x", encoding="utf-8")
+    err = _expect_exit_2(monkeypatch, capsys, "--docs-root", str(tmp_path / "corpus"), "--output-dir", str(f))
+    assert "exists and is not a directory" in err
 ```
 
-`monkeypatch.setitem` records the original value and restores it at teardown, even though `main()` overwrites it.
+`_real_paths` removes the conftest patch (F6) and pins the two config keys. `main()` writes them into the singleton, and `monkeypatch.setitem` restores the originals at teardown.
 
-| # | Test | Setup | Assert |
-|---|---|---|---|
-| T1 | `test_path_flags_route_whole_audit` | `tmp_path/corpus/` holds copies of `docs-for-testing/auth.md` and `billing.md` plus a new `only_here.md` (a heading and two sentences). `monkeypatch.chdir(tmp_path)`. Record the SHA-256 of `sdaa/config/config.yaml`, using the path from `config_loader`'s module (not the working directory). Run `_run(monkeypatch, "--headless", "--docs-root", "corpus", "--output-dir", "out")` with **relative** paths and the real Map Maker. | `app.main()` returns without `SystemExit` (success returns `None`, as in `test_headless_mock_audit_writes_all_outputs`). The `out/ToC.json` paths are exactly `auth.md`, `billing.md`, `only_here.md`. The three files in `out/artifacts/` and `out/reports/Security_Threat_Model.md` exist and are nonempty. Every file under `tmp_path` is under `corpus/` or `out/`, so nothing went to a default `output/`. The `config.yaml` hash is unchanged. `config_loader.get("system.output_dir")` equals `str(tmp_path / "out")`, so the stored path is absolute. |
-| T2 | `test_docs_root_missing_exits_2` | `--docs-root tmp_path/nope --output-dir tmp_path/out` | `SystemExit` code 2. `capsys` stderr contains `does not exist or is not a directory`. `tmp_path/out` does not exist. |
-| T3 | `test_docs_root_is_file_exits_2` | `--docs-root` names an existing file | Code 2. Same message. |
-| T4 | `test_output_dir_inside_docs_root_exits_2` | `--docs-root tmp_path/corpus` (exists) and `--output-dir tmp_path/corpus/out` | Code 2. stderr contains `is inside the docs root`. `tmp_path/corpus/out` does not exist. |
-| T5 | `test_output_dir_is_file_exits_2` | `--output-dir` names an existing file; the docs root is valid | Code 2. stderr contains `exists and is not a directory`. |
+If T1 fails because the mock Map Maker's ToC is invalid, stop and report it; don't fake `generate_toc`.
 
-Every test calls `_pin_system_paths(monkeypatch)` first. T2–T5 use the same `_run` helper with `--headless`.
-
-If T1 fails because the mock Map Maker's ToC is invalid, stop and report it; don't fake `generate_toc`. The point of T1 is that the real indexer read the given corpus.
-
-**Mutation check:** run the five new tests against the pre-change `main.py`. T1 must fail (unrecognized arguments). T2–T5 must fail on the message assertion (F8). Report the result in the PR.
+**Mutation check:** run the five new tests against the pre-change `main.py`. All five must fail: T1 with "unrecognized arguments", T2–T5 on the message assertion (F8). Report the result in the PR. The planner's run: `5 failed, 19 deselected`.
 
 ### 4.3 Documentation
 

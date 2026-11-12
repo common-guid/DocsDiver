@@ -1,17 +1,18 @@
 import os
 import base64
+import logging
+from contextlib import contextmanager
 from dotenv import load_dotenv
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace import SpanProcessor
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from openinference.instrumentation.google_adk import GoogleADKInstrumentor
 from langsmith.integrations.otel import configure as configure_langsmith
 import requests
 
 try:
-    from langfuse import LangfuseOtelSpanAttributes
+    from langfuse import Langfuse, LangfuseOtelSpanAttributes, propagate_attributes
     LANGFUSE_AVAILABLE = True
 except Exception:
     # Handle Python 3.14 + Pydantic v1 incompatibility or missing library
@@ -21,6 +22,46 @@ except Exception:
     LANGFUSE_AVAILABLE = False
 
 load_dotenv()
+_langfuse_client = None
+
+
+def langfuse_base_url():
+    return (os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL")
+            or "http://localhost:3000").rstrip("/")
+
+
+def get_langfuse_client():
+    """Reuse tracing's client; standalone prompt access must not add an exporter."""
+    if _langfuse_client is not None:
+        return _langfuse_client
+    return Langfuse(base_url=langfuse_base_url(), tracing_enabled=False)
+
+
+@contextmanager
+def run_observation(run_id, request):
+    """Keep one complete root and propagate context before child operations."""
+    client = _langfuse_client
+    if client is None:
+        yield None
+        return
+    try:
+        with client.start_as_current_observation(
+            name="docsdiver.run", as_type="chain", input=request,
+        ) as root:
+            with propagate_attributes(
+                session_id=run_id, user_id="user_001",
+                tags=["ADK-DocsDiver"], trace_name="docsdiver.run",
+            ):
+                try:
+                    yield root
+                except BaseException:
+                    root.update(output={"status": "failed"}, level="ERROR")
+                    raise
+    finally:
+        try:
+            client.flush()
+        except Exception:
+            logging.getLogger(__name__).warning("Langfuse flush failed", exc_info=True)
 
 
 class TaggingSpanProcessor(SpanProcessor):
@@ -29,6 +70,12 @@ class TaggingSpanProcessor(SpanProcessor):
 
     def on_start(self, span, parent_context=None):
         span.set_attribute(LangfuseOtelSpanAttributes.TRACE_TAGS, ["ADK-DocsDiver"])
+        for variable, attribute in (
+            ("LANGFUSE_TRACING_ENVIRONMENT", "langfuse.environment"),
+            ("LANGFUSE_RELEASE", "langfuse.release"),
+        ):
+            if os.getenv(variable):
+                span.set_attribute(attribute, os.environ[variable])
         if self.session_id is not None:
             span.set_attribute(LangfuseOtelSpanAttributes.TRACE_SESSION_ID, self.session_id)
         # Check if it is a root span (no parent or parent is invalid)
@@ -58,9 +105,12 @@ def setup_instrumentation(session_id=None):
     """Configure observability for LangSmith + Google ADK (and optionally Langfuse).
 
     LangSmith tracing is configured via langsmith.integrations.otel.configure, which sets up
-    the OpenTelemetry exporter for LangSmith automatically. Langfuse continues to use a
-    manual OTLP exporter attached to the same or a new TracerProvider.
+    the OpenTelemetry exporter for LangSmith automatically. The shared Langfuse SDK
+    owns one processor on the same provider, including custom OTLP endpoint support.
     """
+    global _langfuse_client
+    if _langfuse_client is not None:
+        return True
     has_exporter = False
 
     # --- LangSmith Setup (via official ADK integration) ---
@@ -95,7 +145,7 @@ def setup_instrumentation(session_id=None):
     # --- Langfuse Setup ---
     # Prefer LANGFUSE_HOST if set (OTEL endpoint base), otherwise fall back to
     # LANGFUSE_BASE_URL to match existing .env usage, and finally localhost.
-    lf_host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "http://localhost:3000")
+    lf_host = langfuse_base_url()
     lf_public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
     lf_secret_key = os.getenv("LANGFUSE_SECRET_KEY")
     # Optional explicit override matching Langfuse OTEL docs (e.g. /api/public/otel/v1/traces)
@@ -139,7 +189,13 @@ def setup_instrumentation(session_id=None):
                     endpoint=lf_endpoint,
                     headers={"Authorization": auth_header, "x-langfuse-ingestion-version": "4"}
                 )
-                provider.add_span_processor(BatchSpanProcessor(lf_exporter))
+                # One SDK-owned processor; retain custom adapter and ADK parents.
+                _langfuse_client = Langfuse(
+                    public_key=lf_public_key, secret_key=lf_secret_key,
+                    base_url=lf_host, tracer_provider=provider,
+                    span_exporter=lf_exporter,
+                    should_export_span=lambda span: True,
+                )
                 has_exporter = True
                 print(f"Langfuse observability initialized at {lf_endpoint}")
     else:
@@ -147,7 +203,9 @@ def setup_instrumentation(session_id=None):
 
     if has_exporter:
         # Session and Langfuse tags on every span; existing LangSmith tagging unchanged.
-        provider.add_span_processor(TaggingSpanProcessor(session_id))
+        provider.add_span_processor(TaggingSpanProcessor(
+            None if _langfuse_client is not None else session_id
+        ))
         trace.set_tracer_provider(provider)
 
         # Initialize Google ADK Instrumentation

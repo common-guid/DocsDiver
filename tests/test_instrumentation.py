@@ -5,6 +5,13 @@ from opentelemetry import trace
 from sdaa.src.core.instrumentation import setup_instrumentation, TaggingSpanProcessor, LangfuseOtelSpanAttributes, LANGFUSE_AVAILABLE
 
 class TestInstrumentation(unittest.TestCase):
+    def setUp(self):
+        client_patch = patch('sdaa.src.core.instrumentation._langfuse_client', None)
+        sdk_patch = patch('sdaa.src.core.instrumentation.Langfuse')
+        client_patch.start()
+        self.sdk = sdk_patch.start()
+        self.addCleanup(client_patch.stop)
+        self.addCleanup(sdk_patch.stop)
     @patch('sdaa.src.core.instrumentation.requests.get')
     @patch('sdaa.src.core.instrumentation.OTLPSpanExporter')
     @patch('sdaa.src.core.instrumentation.GoogleADKInstrumentor')
@@ -31,6 +38,12 @@ class TestInstrumentation(unittest.TestCase):
             self.assertIn("Authorization", call_args.kwargs['headers'])
             self.assertTrue(call_args.kwargs['headers']['Authorization'].startswith("Basic "))
             self.assertEqual(call_args.kwargs['headers']['x-langfuse-ingestion-version'], "4")
+            self.sdk.assert_called_once()
+            self.assertIs(self.sdk.call_args.kwargs["span_exporter"], MockExporter.return_value)
+            from sdaa.src.core.instrumentation import get_langfuse_client
+            self.assertIs(get_langfuse_client(), self.sdk.return_value)
+            setup_instrumentation()
+            self.assertEqual(MockExporter.call_count, 1)
         else:
             # If Langfuse is not available (e.g. Python 3.14 issue), it should skipped with a warning
             self.assertEqual(MockExporter.call_count, 0)

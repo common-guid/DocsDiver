@@ -2,6 +2,7 @@ import os
 import logging
 from typing import Optional, Any
 from langfuse import Langfuse
+from sdaa.src.core.instrumentation import get_langfuse_client
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class PromptManager:
         
         if public_key and secret_key:
             try:
-                self._client = Langfuse()
+                self._client = get_langfuse_client()
                 logger.info("Langfuse client initialized successfully.")
             except Exception as e:
                 logger.error(f"Failed to initialize Langfuse client: {e}")

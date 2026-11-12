@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from sdaa.src.core.run_manifest import LEDGER, tree_hash, write_manifest
 from sdaa.src.tools import file_ops
-from sdaa.src.core.instrumentation import setup_instrumentation
+from sdaa.src.core.instrumentation import setup_instrumentation, run_observation
 from sdaa.src.core.config_loader import config_loader
 from sdaa.src.core.map_maker import generate_toc
 from sdaa.src.core.output_validation import (
@@ -168,7 +168,20 @@ async def main():
     code = 1                      # anything but a normal return is a failure
     regenerated = set()
     try:
-        await _run(args, parser, run_id, regenerated)
+        setup_instrumentation(session_id=run_id)
+        with run_observation(run_id, {
+            "provider": args.model, "docs_root": file_ops._get_docs_root(),
+            "headless": args.headless, "toc_only": args.toc_only,
+        }) as root:
+            await _run(args, parser, run_id, regenerated)
+            if root is not None:
+                paths = audit_output_paths()
+                root.update(output={
+                    "status": "completed",
+                    "report": Path(paths[-1]).read_text(encoding="utf-8")
+                    if not args.toc_only and os.path.isfile(paths[-1]) else None,
+                    "toc_only": args.toc_only,
+                })
         code = 0
     except SystemExit as e:
         code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
@@ -205,7 +218,6 @@ async def _run(args, parser, run_id, regenerated):
     ui = RichUI(no_rich=args.no_rich)
     suppress_genai_non_text_warning()
 
-    setup_instrumentation(session_id=run_id)
     ui.print_banner("SDAA: Security Documentation Analysis Agent")
     ui.print_status(f"Using provider: {args.model}")
 

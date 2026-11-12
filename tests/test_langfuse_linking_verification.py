@@ -17,7 +17,7 @@ class MockPromptClient:
 
 @pytest.fixture
 def mock_langfuse():
-    with patch("sdaa.src.utils.prompt_manager.Langfuse") as mock:
+    with patch("sdaa.src.utils.prompt_manager.get_langfuse_client") as mock:
         client_instance = mock.return_value
         prompt_client = MockPromptClient("test-prompt", 1)
         client_instance.get_prompt.return_value = prompt_client

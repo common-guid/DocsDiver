@@ -1,5 +1,11 @@
 # Project Progress
 
+## Phase: Langfuse v4 platform repository migration | 2026-11-12
+Consolidated tracing and prompt retrieval onto one SDK-owned export pipeline, declared the supported SDK 5.2.0 range, and added a propagated application root with request/report I/O and explicit flush on success/failure. Updated the connectivity diagnostic and offline SDK regression tests.
+Validation: 173 tests passed in a disposable copy without credentials or local outputs; compileall and installed dependency checks passed. SDK tests verify complete single exports, parentage, root I/O, propagated session/user/tags, environment/release, and failure flushing. Existing suite warnings remain.
+
+Next: confirm the target project and self-hosted server compatibility (SDK v5 requires v4.59.0+), inspect legacy evaluators and exports, and validate a non-production canary including session cost before production cutover. These project-dependent checks were not performed in code-only mode.
+
 ## Phase: Bug Fixes & Improvements | 2026-01-24
 Resolved compatibility issues with Python 3.14 and validated the application flow.
 

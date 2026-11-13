@@ -357,3 +357,15 @@ Implemented `docs/plans/TACTICAL_3_REFRESH_AND_COMPLETION.md` (ROADMAP release 0
 ### Next Steps & Continuity
 - Plan: `docs/plans/evals/10_P3_RUN_MANIFEST_PLAN.md`. Live check not run; it requires separate operator approval.
 - Gemini call accounting and OpenRouter routing metadata remain outside P3.
+
+## Phase: Eval H1 — Corpus and Key Tools | 2026-11-12
+### Tasks Completed
+- [x] Added offline `evals` commands for corpus verification, answer-key checking, and reproducible corpus builds with byte-preserving edits and deterministic `variants.yaml`.
+- [x] Key validation enforces the schema, tag vocabulary, section-based native interactions, one plant per page, and replacement-label lint; corpus builds reject unsafe trees, ambiguous finds, overlapping edits, and conflicting destinations before writing.
+- [x] Added the synthetic Acme Notebooks corpus and key verbatim, plus 101 tests in `tests/test_evals_corpus.py` and `tests/test_evals_key.py`. CLI imports remain lazy and corpus tools do not import the key.
+- [x] Suite: 274 passed (baseline 173 + 101 new), disposable copy; `python -m compileall -q evals tests` passed. No model calls or new dependencies.
+- [x] Mutation checks: M1–M6 caused 1, 1, 2, 3, 1, and 2 failures respectively; each mutation was restored before the next.
+- [x] Docs: `AGENTS.md`, `archive/PROGRESS.md`; implementation prompt copied to `docs/plans/evals/14_H1_CORPUS_KEY_PROMPT.md`.
+
+### Next Steps & Continuity
+- H2 runner: stage neutral temporary corpus/output paths, run and collect audits, and verify key-leakage boundaries. Running audits and repository-path restrictions are outside H1.

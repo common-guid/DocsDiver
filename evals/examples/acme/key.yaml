@@ -1,0 +1,81 @@
+key_id: acme-example
+key_version: 2
+snapshot_id: acme-2026-01-01
+tags_version: 1
+items:
+  - id: PL-01
+    kind: planted
+    status: approved
+    tags: [permission-gap, contradiction]
+    variants: [seeded]
+    difficulty: 3
+    locations:
+      - {path: admin/roles.md, section: "Editor"}
+      - {path: sharing/links.md, section: "Link expiry"}
+    what: >-
+      roles.md says Editors cannot create public links. links.md says any
+      Editor can create a public link that never expires.
+    why: >-
+      If links.md is the real behaviour, an Editor can publish a notebook
+      outside the workspace with no admin control and no expiry.
+    plant:
+      - path: sharing/links.md
+        find: "Only Admins can create public links. Public links expire after 30 days."
+        replace: "Any Editor can create a public link. Public links do not expire."
+    added_in: 2
+  - id: PL-02
+    kind: planted
+    status: draft
+    tags: [invariant-gap]
+    variants: [seeded]
+    difficulty: 1
+    locations: [{path: api/tokens.md, section: "Expiry"}]
+    what: Tokens never expire unless their owner sets a date.
+    why: A leaked token stays valid indefinitely.
+    plant:
+      - path: api/tokens.md
+        find: "Tokens expire after 90 days."
+        replace: "Tokens do not expire unless their owner sets a date."
+    added_in: 2
+  - id: NA-02
+    kind: native
+    status: approved
+    tags: [trust-boundary-gap]
+    variants: [clean, seeded]
+    locations: [{path: sharing/links.md, section: "Link expiry"}]
+    what: >-
+      The page does not say whether revoking a public link ends access for
+      visitors who already have the notebook open.
+    why: An outside visitor may keep reading a notebook after the link is revoked.
+    interaction: {plant: PL-01, effect: none}
+    source: {run: r-20260101-01, finding: B-F02}
+    added_in: 1
+  - id: NA-03
+    kind: native
+    status: approved
+    tags: [invariant-gap]
+    variants: [clean, seeded]
+    locations: [{path: billing/invoices.md, section: "Editing invoices"}]
+    what: The page never says whether a paid invoice can be edited.
+    why: Nothing in the docs stops a change to a paid invoice, so it must be tested.
+    source: {run: r-20260101-01, finding: C-F07}
+    added_in: 1
+  - id: NA-04
+    kind: native
+    status: draft
+    tags: [permission-gap]
+    variants: [clean, seeded]
+    locations: [{path: api/tokens.md, section: "Token scopes"}]
+    what: The page does not say whether a token keeps its access after its owner's role is lowered.
+    why: A demoted user's scripts may keep admin access.
+    added_in: 2
+  - id: RJ-01
+    kind: invented
+    status: approved
+    tags: [permission-gap]
+    variants: [clean, seeded]
+    locations: [{path: admin/roles.md, section: "Viewer"}]
+    what: Viewers can delete notebooks.
+    source: {run: r-20260101-01, finding: P-F03}
+    note: roles.md says Viewers cannot delete notebooks.
+    added_in: 1

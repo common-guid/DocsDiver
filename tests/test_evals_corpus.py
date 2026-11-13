@@ -145,10 +145,11 @@ def test_overlapping_edits(tmp_path):
 
 
 def test_touching_edits(tmp_path):
-    edits = [("PL-01", "sharing/links.md", "Only Admins", "All Editors"),
+    # The first replacement changes length, so applying edits front to back would corrupt the second.
+    edits = [("PL-01", "sharing/links.md", "Only Admins", "Every Editor"),
              ("PL-02", "sharing/links.md", " can create public links.", " may publish.")]
     corpus.build(EXAMPLE / "clean", tmp_path / "seeded", edits)
-    assert b"All Editors may publish." in (tmp_path / "seeded/sharing/links.md").read_bytes()
+    assert b"Every Editor may publish. Public links" in (tmp_path / "seeded/sharing/links.md").read_bytes()
 
 
 def test_unknown_edit_path_and_collect_all(tmp_path):

@@ -159,9 +159,9 @@ Valid outputs are reused unless refreshed; `core/output_validation.py` defines v
 
 `utils/prompt_manager.py` fetches Langfuse instructions; retrieval failure yields error-text instructions, not a usable local fallback. Bindings come from YAML except `report-synthesizer`/`production`, hardcoded in the coordinator. Preserve brace sanitization/escaping: ADK interprets braces as state substitutions.
 
-`core/instrumentation.py` shares OpenTelemetry tracing across LangSmith/Langfuse. Tracing and prompt retrieval are separate; disabling observability does not supply prompts.
+`core/instrumentation.py` shares OpenTelemetry tracing across LangSmith/Langfuse. One Langfuse SDK client owns the export processor and is reused for prompts; standalone prompt clients disable tracing. The CLI wraps model/agent work in `docsdiver.run`, propagates session/user/tags/name, records root I/O and flushes on exit. Python SDK 5.2.0 targets the v4 platform (Cloud or self-hosted v4.59.0+). Tracing and prompt retrieval are separate; disabling observability does not supply prompts.
 
-`core/run_manifest.py` keeps the per-run call ledger and writes headless provenance, corpus/output hashes, usage and outcome. OpenRouter and mock calls are recorded; Gemini is not recorded in P3. The tagging processor sets session and tags on every span when installed; the existing LangSmith tag branch is unchanged.
+`core/run_manifest.py` keeps the per-run call ledger and writes headless provenance, corpus/output hashes, usage and outcome. OpenRouter and mock calls are recorded; Gemini is not recorded in P3. SDK propagation sets session on Langfuse spans; the tagging processor preserves tags and deployment attributes on the shared provider (and session for LangSmith-only runs). The existing LangSmith tag branch is unchanged.
 
 Adding a worker requires aligning its factory/state key, reporting tool, YAML bindings, both agent trees, output validation/replay mapping, and remote coordinator/synthesis prompts.
 

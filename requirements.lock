@@ -250,7 +250,6 @@ typing-extensions==4.16.0
     #   fastapi
     #   google-adk
     #   google-genai
-    #   httpx2
     #   langfuse
     #   langsmith
     #   openai
@@ -261,9 +260,6 @@ typing-extensions==4.16.0
     #   opentelemetry-semantic-conventions
     #   pydantic
     #   pydantic-core
-    #   pytest-asyncio
-    #   referencing
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.5
     # via

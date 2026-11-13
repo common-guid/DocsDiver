@@ -23,3 +23,8 @@ Implemented the reviewed run-ID, span tagging, ledger, manifest and 17 tests; wo
 Added run IDs, all-span session/tags, call provenance and atomic headless manifests following the reviewed P3 plan. Fresh disposable-copy verification passed 170 tests (153 + 17); mutation matched 16 failed/154 passed, and A3 uses the operator-approved actual-globals patch to handle module re-import isolation; no live check was run.
 
 ---
+# Prepare Langfuse v4 platform instrumentation
+2026-11-12 15:14:07 | ADK_master (platform_engineer)
+Consolidated prompt and tracing clients onto one SDK-owned exporter, added propagated run-root I/O and explicit failure-safe flushing, and constrained the current SDK to >=5.2.0,<6. Validated 173 tests in a disposable copy, final focused regressions (9 passed), syntax and dependency checks; project evaluator, export and ingestion checks remain blocked in code-only mode.
+
+---

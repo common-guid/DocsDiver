@@ -22,6 +22,7 @@ graph TD
 
 ### 2.1 Unified Instrumentation (`sdaa/src/core/instrumentation.py`)
 Both Langfuse and LangSmith telemetry exporters attach to a single `TracerProvider` during application startup via `setup_instrumentation()`:
+The Langfuse SDK owns exactly one export processor; prompt retrieval reuses that client rather than adding another exporter. Standalone prompt access disables tracing. An explicit export-all filter retains custom adapter and application parent spans.
 
 1. **Auto-Instrumentation**: Uses `openinference-instrumentation-google-adk` to automatically trace ADK `Runner`, `LlmAgent`, tool invocations, and model calls.
 2. **Langfuse OTLP Endpoint**:
@@ -36,7 +37,9 @@ Both Langfuse and LangSmith telemetry exporters attach to a single `TracerProvid
    - For OpenRouter calls, the `OpenRouterModel.generate_content` span carries OpenRouter's token usage (`langfuse.observation.usage_details`) and USD cost (`langfuse.observation.cost_details`), and is the only span that does.
 5. **One Session per Run**:
    - `--run-id <id>` sets both the ADK session ID and Langfuse `session.id`. If omitted, the CLI generates `YYYYMMDDTHHMMSSZ-<6 hex>` in UTC, including for interactive runs.
-   - When installed, `TaggingSpanProcessor` sets `session.id` and `langfuse.trace.tags = ["ADK-DocsDiver"]` on every span, including Map Maker's direct calls and ADK `call_llm` spans.
+   - The `docsdiver.run` root wraps Map Maker and the audit/chat. SDK `propagate_attributes()` establishes session, user, tags and trace name before child calls. The tagging processor also preserves process-level `LANGFUSE_TRACING_ENVIRONMENT` and `LANGFUSE_RELEASE` on custom-provider spans.
+   - The root stores request configuration and the completed security report (or failure status). In ToC-only mode its output identifies that mode. Root report contents follow the same data-handling policy as existing worker/model spans.
+   - The SDK flushes after the root ends, including exceptional exits. Exports remain buffered, best-effort OTLP with exporter retries; a successful flush is not proof of backend ingestion. No shutdown occurs between runs in the same process.
    - The existing LangSmith tag branch is unchanged; its implicit-context check can also tag child spans.
    - The processor is installed only when an exporter is configured. For a Langfuse-only run, verify the log contains `Langfuse observability initialized`; a failed health check prevents installation.
 
@@ -50,6 +53,15 @@ Both Langfuse and LangSmith telemetry exporters attach to a single `TracerProvid
 - OpenRouter and mock calls are recorded. `InstrumentedGemini` calls are not recorded in P3; a zero-call Gemini manifest is not evidence of a fully metered audit.
 - Prompt name/version come from the object used by each call. Map Maker's inline prompt has null name/version. The synthesizer clears its previous prompt before every fetch, so a failed fetch cannot retain a stale version.
 - The `provider` field may be null for OpenRouter responses. No routing-metadata request is added in P3.
+
+### 2.3 Langfuse v4 platform rollout
+The declared Python SDK range is `>=5.2.0,<6`; `requirements.lock` resolves 5.2.0. Platform v4 is not SDK major v4: the current supported SDK major is v5. Python 3.11+ and Langfuse Cloud or self-hosted v4.59.0+ are required; self-hosted v3 is blocked until the server is upgraded.
+
+Repository inspection found no evaluator definitions, dataset experiment runners, deprecated Langfuse read API consumers or export configurations. This does not establish project state. With a confirmed target host/project, inspect active and inactive evaluator rules and the Evaluators UI for Legacy rows; preserve disabled rules for rollback. `docsdiver.run` is only a **candidate target** for an overall-audit observation evaluator, not a project-verified contract. Inputs and report are colocated; add any other required evaluator variables to this observation only after inspecting actual mappings.
+
+Before production cutover, send a non-production canary with a root, generation and tool child. Inspect hierarchy, root I/O, every child's session and filtering attributes, generation usage/cost/prompt links, unique observation IDs, and session cost including cost-bearing children. Confirm server compatibility, evaluator matching/scores/logs and Observations API v2 fields. No project access was used for the repository migration.
+
+Inspect Project Settings > Integrations for Blob Storage, Mixpanel and PostHog exports. Validate enriched-observation consumers in dual-source mode and get downstream-owner approval before enriched-only. Preserve credentials, schedules, prefixes and formats. Do not enable evaluator successors without approval; retain disabled legacy rules and existing export settings for rollback.
 
 ---
 

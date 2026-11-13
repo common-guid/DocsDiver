@@ -28,3 +28,8 @@ Added run IDs, all-span session/tags, call provenance and atomic headless manife
 Consolidated prompt and tracing clients onto one SDK-owned exporter, added propagated run-root I/O and explicit failure-safe flushing, and constrained the current SDK to >=5.2.0,<6. Validated 173 tests in a disposable copy, final focused regressions (9 passed), syntax and dependency checks; project evaluator, export and ingestion checks remain blocked in code-only mode.
 
 ---
+# Add eval H1 corpus and key tools
+2026-11-12 21:30:44 | feat/eval-h1-corpus-key (platform_engineer)
+Added offline corpus verification, answer-key schema and interaction checks, and reproducible approved-edit builds with deterministic variant hashes. Added the synthetic Acme example and 101 tests; the disposable full suite passed 274 tests, compileall passed, and all six mutations were caught.
+
+---

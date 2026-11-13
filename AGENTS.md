@@ -40,6 +40,8 @@ python main.py --coordinator-only --headless --no-rich
 
 ### Tests and syntax checks
 
+`evals/` holds the offline eval harness. `python -m evals corpus verify <dir>`, `python -m evals key check --key <file> --clean <dir>` and `python -m evals corpus build --key <file> --clean <dir> --seeded <dir> [--variants <file>]` make no model calls. Tests use the synthetic example in `evals/examples/acme/`; the design is `docs/plans/evals/05_EVAL_DESIGN.md`.
+
 Use `python -m pytest tests ...` to preserve root imports and avoid collecting diagnostic scripts. **Run the full suite in a disposable copy:** reporting tests delete `output/`, and Map Maker tests remove the ToC. Tests assume the default YAML and `docs-for-testing/` corpus.
 
 With `.venv` populated, run the suite without touching local outputs or copying the repository's `.env`:
